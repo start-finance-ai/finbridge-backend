@@ -506,7 +506,7 @@ NOT DECIDED
 - [x] Secret을 환경변수로 관리하는 원칙 정의
 - [x] `.gitignore` 생성 및 기본 제외 규칙 검증
 - [x] `.venv/` Git 제외 설정
-- [ ] `.env.example` 생성
+- [x] `.env.example` 생성
 - [ ] 운영 Secret 관리 방식 확정
 - [ ] 금융정보 Logging 정책 구현
 
