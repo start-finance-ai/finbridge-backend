@@ -27,8 +27,8 @@
 1. 대회 공식 규정 및 공식 양식
 2. `docs/FINANCE_AI_GROUND_TRUTH.md`
 3. `docs/FINANCE_AI_MVP_SCOPE.md`
-4. `docs/FINANCE_AI_ARCHITECTURE.md`
-5. `docs/DATA_SOURCES.md`
+4. `docs/DATA_SOURCES.md`
+5. `docs/FINANCE_AI_ARCHITECTURE.md`
 6. `docs/FINANCE_AI_DEV_STATUS.md`
 7. `docs/planning/` 내부 기획 초안
 8. 코드 내 기존 구현

@@ -33,6 +33,7 @@ start-finance-ai/backend
 
 ```text
 backend/
+├─ .gitignore
 ├─ AGENTS.md
 ├─ README.md
 │
@@ -51,6 +52,15 @@ backend/
       └─ bizinfo/
          └─ bizinfo_startup_sample.json
 ```
+
+## Local Development Environment
+
+- [x] Python 가상환경 `.venv` 생성 완료
+- [x] 가상환경 활성화 및 Python 실행 확인
+- [x] `.venv/`를 `.gitignore`에서 제외하도록 설정
+- [x] `.env`, `.env.*`, `data/raw/` 등 개발 중 비공개/Raw 파일 제외 규칙 설정
+
+`.venv/`는 로컬 개발환경이므로 Repository 구조에는 포함하지 않으며 Git에 커밋하지 않는다.
 
 
 # 3. Documentation Status
@@ -494,7 +504,8 @@ NOT DECIDED
 
 - [x] API Key를 Source Code에 넣지 않는 원칙 정의
 - [x] Secret을 환경변수로 관리하는 원칙 정의
-- [ ] `.gitignore` 검증
+- [x] `.gitignore` 생성 및 기본 제외 규칙 검증
+- [x] `.venv/` Git 제외 설정
 - [ ] `.env.example` 생성
 - [ ] 운영 Secret 관리 방식 확정
 - [ ] 금융정보 Logging 정책 구현
