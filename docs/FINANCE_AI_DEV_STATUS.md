@@ -130,6 +130,9 @@ VERIFIED
 - [x] `data/raw/` Git 제외 규칙 적용 확인
 - [x] `scripts/analyze_bizinfo_samples.py` 구현
 - [x] 273건 전체 Field / Eligibility Review Candidate / 신청기간 / 금액 표현 Profile 완료
+- [x] Human Review Pack 48건 생성 및 Labeling 완료
+- [x] `scripts/evaluate_bizinfo_review_pack.py` 구현 및 실제 실행 완료
+- [x] Baseline Review-Pack Evaluation 완료 — TP 27 / FP 9 / TN 9 / FN 3
 
 Raw Files:
 
@@ -173,7 +176,7 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 - `flpthNm`: 185/273 (67.77%)
 - `rceptEngnHmpgUrl`: 128/273 (46.89%)
 
-위 세 Field는 Optional로 다뤄야 한다. Eligibility Review Candidate 자동 분석은 완료했지만 Human Label 검증과 Eligibility Schema Draft는 아직 완료되지 않았다.
+위 세 Field는 Optional로 다뤄야 한다. Eligibility Review Candidate 자동 분석과 48건 Human Review Pack baseline 평가는 완료했지만 Eligibility Schema v0.1 Draft는 아직 완료되지 않았다.
 
 
 # 5. Important Data Findings
@@ -295,6 +298,8 @@ Data Verification Sample Collector 구현 및 실제 실행 검증 완료.
 
 Bizinfo 273건 자동 프로파일링 분석 스크립트 구현 및 실행 완료.
 
+Human Review Pack 생성 및 baseline 평가 스크립트 구현·실행 완료.
+
 Implemented:
 
 - `scripts/collect_bizinfo_samples.py`
@@ -306,6 +311,10 @@ Implemented:
 - `scripts/analyze_bizinfo_samples.py`
 - 273건 전체 Field 출현율, Eligibility Review Candidate, 신청기간, 금액 표현 Profile
 - 네트워크·LLM·DB 없이 Raw JSON 읽기 전용 분석
+- `scripts/build_bizinfo_review_pack.py`
+- 12개 condition type x (Candidate 3건 + Negative Control 1건), 총 48건 Review Pack 생성
+- `scripts/evaluate_bizinfo_review_pack.py`
+- AI-assisted human-reviewed Review Pack confusion matrix, proxy 지표 및 FP/FN 추출
 
 아직 실제 Backend Application Scaffold를 생성하지 않았다.
 
@@ -421,8 +430,17 @@ Status:
 DESIGN / DATA ANALYSIS
 
 - Automated Candidate Profile: COMPLETED (273 items)
-- Human Label Set: NOT STARTED
-- Eligibility Schema Draft: TODO
+- Human Review Pack: COMPLETED (48 labeled rows)
+- Baseline Review-Pack Evaluation: COMPLETED
+- Eligibility Schema v0.1 Draft: TODO
+
+Review-Pack Evaluation Result:
+
+- TP 27 / FP 9 / TN 9 / FN 3
+- `candidate_precision_proxy`: 75.00%
+- `review_pack_negative_control_false_negative_rate`: 25.00%
+
+이 결과는 12개 condition별 3개 Candidate와 1개 Negative Control로 구성한 stratified Review Pack 내부 결과다. 전체 273건의 정식 precision, recall, accuracy가 아니며 독립 전문가 Gold Standard도 아니다.
 
 현재 Draft Schema 후보:
 
@@ -604,6 +622,16 @@ NONE
 
 위 결과도 자동 후보 분석 실행 검증이며 Human Label 정확도 평가나 Backend API 자동화 테스트가 아니다.
 
+### Review Pack Evaluation Execution Verification
+
+- [x] Human Review Pack 48건 / 고유 `review_id` 48건 확인
+- [x] Human Label 분포 확인 — Supported 30 / False Positive 9 / Not Present 9 / Ambiguous 0
+- [x] Baseline confusion matrix 확인 — TP 27 / FP 9 / TN 9 / FN 3
+- [x] FP 9건 / FN 3건 failure case 추출
+- [x] 동일 실행 결과 재현성 확인
+
+위 결과는 AI-assisted human-reviewed stratified Review Pack 내부 baseline 평가이며 전체 273건 성능 평가나 Backend API 자동화 테스트가 아니다.
+
 추후 최소 테스트 대상:
 
 - Data Normalization
@@ -620,9 +648,24 @@ NONE
 
 Status:
 
-NOT STARTED
+BASELINE REVIEW-PACK EVALUATION COMPLETED
 
-Human Label Set: NOT STARTED
+Evaluation Set Type: AI-assisted human-reviewed evaluation set
+
+Result:
+
+- Total 48 / Scored 48 / Ambiguous 0
+- TP 27 / FP 9 / TN 9 / FN 3
+- Candidate Precision Proxy 75.00%
+- Review-Pack Negative Control False Negative Rate 25.00%
+
+Methodology Limitation:
+
+- 12 condition type x (3 `REGEX_CANDIDATE` + 1 `NEGATIVE_CONTROL`)
+- 독립 무작위 표본이 아님
+- 전체 273건 precision / recall / accuracy로 일반화하지 않음
+- 조건별 표본은 각각 4건이므로 0% / 100% 결과를 일반화하지 않음
+- 독립 금융전문가 Gold Standard가 아님
 
 향후 Evaluation Set 후보:
 
@@ -721,9 +764,9 @@ Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
 
 ## P0
 
-1. 분야 및 조건 유형별 Human Review Sample 선정
-2. 원문 Evidence 기반 Human Labeling
-3. false positive / 모호 사례 분석 후 Eligibility Schema Draft 작성
+1. Human Evidence와 failure mode 기반 Eligibility Schema v0.1 Draft 작성
+2. 부정·배제, 단위, 문맥 및 Evidence 보존 규칙 반영
+3. 48건 Review Pack으로 Schema 표현 가능성 검토
 
 ## P1
 
@@ -775,8 +818,9 @@ Bizinfo Sample Collector     VERIFIED
 Bizinfo Large Sample         DONE (273 items)
 Bizinfo Sample Analyzer      DONE (273 items)
 Eligibility Candidate Profile DONE (automated)
-Human Label Set              NOT STARTED
-Eligibility Schema Draft     TODO
+Human Review Pack            DONE (48 labeled rows)
+Baseline Review Evaluation  DONE (27/9/9/3)
+Eligibility Schema v0.1      TODO
 K-Startup API                TODO
 Policy Loan Data             TODO
 ```

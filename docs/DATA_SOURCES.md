@@ -238,7 +238,63 @@ Optional Field의 전체 출현 및 non-empty 결과:
 | 교육 이수 | 5 | 필수·사후 이수·권고 구분 필요 |
 | 추천 / 선정 / 평가 조건 | 7 | 신청 전제와 선발 절차 구분 필요 |
 
-`hashtags`는 이 Eligibility Review Candidate 탐지 및 Evidence에서 제외했다. 자동 후보 분석은 전체 273건에 대해 완료했지만 Human Label 검증은 아직 시작하지 않았고, Eligibility Schema도 확정하지 않았다.
+`hashtags`는 이 Eligibility Review Candidate 탐지 및 Evidence에서 제외했다. 자동 후보 분석은 전체 273건에 대해 완료했으며, 아래 Human Review Pack으로 baseline의 과탐·미탐을 별도 검토했다. Eligibility Schema는 아직 확정하지 않았다.
+
+### Human-reviewed Review Pack and Baseline Evaluation — 2026-08-28
+
+[EXPERIMENT]
+
+12개 Eligibility condition type을 대상으로 `REGEX_CANDIDATE` 3건과 `NEGATIVE_CONTROL` 1건씩 선정한 48건의 Human-reviewed Review Pack을 생성하고 검토했다.
+
+이 Label Set은 AI가 원문 판독을 보조하고 사용자가 검토 결과를 반영한 **AI-assisted human-reviewed evaluation set**이다. 독립 금융전문가가 검증한 Gold Standard가 아니다.
+
+Sampling 구조:
+
+* Condition type: 12개
+* Condition별 `REGEX_CANDIDATE`: 3건
+* Condition별 `NEGATIVE_CONTROL`: 1건
+* 전체 Row: 48건
+* 단순 무작위 독립 Evaluation Set이 아닌 stratified Review Pack
+
+Human Label 분포:
+
+| Human Label | 건수 |
+| --- | ---: |
+| `SUPPORTED_CANDIDATE` | 30 |
+| `FALSE_POSITIVE` | 9 |
+| `NOT_PRESENT` | 9 |
+| `AMBIGUOUS` | 0 |
+
+Baseline Review-Pack confusion matrix:
+
+| Prediction / Actual | actual positive | actual negative |
+| --- | ---: | ---: |
+| predicted positive (`REGEX_CANDIDATE`) | TP 27 | FP 9 |
+| predicted negative (`NEGATIVE_CONTROL`) | FN 3 | TN 9 |
+
+* Total: 48
+* Scored: 48
+* Ambiguous: 0
+* `candidate_precision_proxy`: 27 / 36 = 75.00%
+* `review_pack_negative_control_false_negative_rate`: 3 / 12 = 25.00%
+
+위 두 지표는 의도적으로 구성한 Review Pack 내부 baseline 진단값이다. 전체 273건의 정식 precision, recall 또는 accuracy로 해석하거나 일반화하지 않는다. Condition별 표본도 4건뿐이므로 개별 조건의 0% 또는 100% 결과를 일반화하지 않는다.
+
+실제 Human Review에서 확인된 주요 failure mode:
+
+* 기관명·사업명의 지역명을 지역 Eligibility로 오탐
+* `21세기`를 `21세`로 오탐
+* `2026 세종`을 `26세`로 오탐
+* 사업자 미등록 신청불가 같은 부정·배제 방향 오해
+* 융자 거치·상환기간을 사업 업력으로 오탐
+* `사업경력`과 개월 단위 업력 미탐
+* 열거형 산업·제품 범주 미탐
+* `법인 제외` 같은 제외형 사업자 유형 미탐
+* 융자한도 산정용 매출액을 Eligibility 매출조건으로 오탐
+* 기관명·지원내용의 여성 표현을 성별 Eligibility로 오탐
+* 사업 수행 후 부여되는 인증을 사전 인증 조건으로 오탐
+
+이 결과는 Eligibility Schema v0.1 Draft의 Evidence로 사용할 수 있지만, 이 실험만으로 Schema를 확정하지 않는다.
 
 ## Confirmed JSON Structure
 
@@ -592,7 +648,8 @@ LLM 또는 Parser가 비정형 조건을 구조화하더라도 최종 Matching�
 * [x] 전체 273건 Eligibility Review Candidate 자동 분석
 * [x] 전체 273건 신청기간 패턴 자동 분류
 * [x] 전체 273건 금액 표현 및 지원 문맥 후보 자동 분석
-* [ ] Human Review Sample 선정 및 Labeling
+* [x] Human Review Pack 48건 선정 및 Labeling
+* [x] Baseline Review-Pack Evaluation 완료 — TP 27 / FP 9 / TN 9 / FN 3
 * [ ] 업종 조건 구조화 가능성 정량 검증
 * [ ] 지역 조건 구조화 정확도 검증
 * [ ] Eligibility Extraction Schema 확정
@@ -1288,28 +1345,27 @@ LLM
 
 # 17. Next Data Verification
 
-DS-001의 최초 API 접근, 기본 Schema 확인, 3개 분야 Sample 확대 및 273건 전체 자동 후보 분석을 완료했다.
+DS-001의 최초 API 접근, 기본 Schema 확인, 3개 분야 Sample 확대, 273건 전체 자동 후보 분석 및 48건 Human Review Pack baseline 평가를 완료했다.
 
 따라서 다음 검증 순서는 다음과 같다.
 
-## Step 1 — Human Review Sample 선정 및 Labeling
+## Step 1 — Human Review Sample 선정 및 Labeling — COMPLETED
 
 목표:
 
-* 금융, 창업, 경영 및 조건 유형별 대표 공고 선정
-* 정규식 Review Candidate의 실제 자격 조건 여부 검토
-* false positive와 모호한 문장 사례 기록
-* 사람이 확인한 원문 Evidence 범위 기록
+* 12개 condition type별 4건, 총 48건 Review Pack 검토
+* TP 27 / FP 9 / TN 9 / FN 3 확인
+* 과탐·미탐 failure mode 및 Human Evidence 기록
+* 전체 273건 모집단 성능이 아닌 Review-Pack 내부 baseline으로 한정
 
 확인할 항목:
 
 * 지역, 연령, 업력, 사업자 여부, 업종 등 주요 조건
-* 신청기간 비정형 패턴
-* 금액 표현과 실제 지원 문맥의 차이
 * `trgetNm` coarse target과 세부 Eligibility의 차이
 * 자동 탐지 누락 및 과탐 사례
+* 부정·배제, 단위, 기관명, 지원내용과 자격조건의 문맥 차이
 
-## Step 2 — Human Label 근거 Eligibility Schema 초안 및 검증
+## Step 2 — Eligibility Schema v0.1 Draft 및 검증
 
 최소 30~50개 공고를 직접 확인하여
 
