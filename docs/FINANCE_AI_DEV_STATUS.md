@@ -47,10 +47,16 @@ backend/
 │  └─ planning/
 │     └─ 2026_금융_AI_Challenge_기획서_AI_Backend_Data_Infra_담당초안.md
 │
+├─ scripts/
+│  └─ collect_bizinfo_samples.py
+│
 └─ data/
    └─ raw/
       └─ bizinfo/
-         └─ bizinfo_startup_sample.json
+         ├─ bizinfo_finance_sample.json
+         ├─ bizinfo_management_sample.json
+         ├─ bizinfo_startup_sample.json
+         └─ bizinfo_startup_sample_100.json
 ```
 
 ## Local Development Environment
@@ -115,12 +121,24 @@ VERIFIED
 - [x] 비정형 신청기간 존재 확인
 - [x] 지원금액이 자연어에 포함되는 사례 확인
 - [x] 지자체 지원사업 존재 확인
+- [x] 금융 분야 Sample 100건 확보 (`totCnt` 220)
+- [x] 창업 분야 확대 Sample 73건 확보 (`totCnt` 73)
+- [x] 경영 분야 Sample 100건 확보 (`totCnt` 461)
+- [x] 3개 분야 총 273건 Raw Sample 확보
+- [x] 3개 분야 모두 HTTP 200 확인
+- [x] Sample Collector Exit Code 0 확인
+- [x] `data/raw/` Git 제외 규칙 적용 확인
 
-Raw File:
+Raw Files:
 
 ```text
+data/raw/bizinfo/bizinfo_finance_sample.json
+data/raw/bizinfo/bizinfo_management_sample.json
 data/raw/bizinfo/bizinfo_startup_sample.json
+data/raw/bizinfo/bizinfo_startup_sample_100.json
 ```
+
+창업 분야는 `searchCnt=100` 요청에 대한 전체 결과가 73건이므로 73건 수집을 정상으로 확인했다.
 
 ### Confirmed Raw Fields
 
@@ -143,6 +161,18 @@ data/raw/bizinfo/bizinfo_startup_sample.json
 - bsnsSumryCn
 - pldirSportRealmMlsfcCodeNm
 - printFileNm
+
+### Field Variability — Initial Observation
+
+분야별 첫 번째 Item 확인 결과 다음 Field가 일관되게 존재하지 않을 가능성을 확인했다.
+
+- 금융: `fileNm`, `flpthNm`, `rceptEngnHmpgUrl` 확인
+- 창업: `fileNm`, `flpthNm` 확인
+- 경영: 위 세 Field가 첫 번째 Item에는 존재하지 않음
+
+위 Field는 Optional 후보이며, 전체 273건의 출현율과 결측률은 아직 분석하지 않았다.
+
+Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되지 않았다.
 
 
 # 5. Important Data Findings
@@ -245,7 +275,16 @@ Official Data
 
 현재:
 
-NONE
+Data Verification Sample Collector 구현 및 실제 실행 검증 완료.
+
+Implemented:
+
+- `scripts/collect_bizinfo_samples.py`
+- 환경변수 `BIZINFO_API_KEY` 기반 인증
+- 금융(01), 창업(06), 경영(07) 분야별 `searchCnt=100` 요청
+- Raw Response Bytes 보존 저장
+- HTTP, Network, JSON, Response Structure, File Save 오류 처리
+- 실제 실행 결과 Exit Code 0 및 Raw Sample 총 273건 저장 확인
 
 아직 실제 Backend Application Scaffold를 생성하지 않았다.
 
@@ -253,7 +292,6 @@ NONE
 
 - Backend API
 - Database
-- Collector
 - Normalizer
 - Retrieval
 - Eligibility Extraction
@@ -523,6 +561,16 @@ NOT DECIDED
 
 NONE
 
+### Collector Execution Verification
+
+- [x] 금융, 창업, 경영 분야 실제 API 호출 성공
+- [x] 3개 요청 모두 HTTP 200
+- [x] Collector Exit Code 0
+- [x] Raw JSON 총 273건 저장
+- [x] `data/raw/` Git 제외 확인
+
+위 결과는 Data Verification Script의 실행 검증이며 Backend API 자동화 테스트가 아니다.
+
 추후 최소 테스트 대상:
 
 - Data Normalization
@@ -638,9 +686,9 @@ Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
 
 ## P0
 
-1. 기업마당 Sample 확대
-2. Eligibility 조건 유형 분석
-3. Eligibility Schema 검증
+1. 전체 273건 Eligibility 후보 Field 분석
+2. 분야별 Field 출현율 및 결측 패턴 분석
+3. Eligibility Schema 초안 작성 및 검증 대상 선정
 
 ## P1
 
@@ -658,7 +706,7 @@ Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
 ## P3
 
 11. Backend Scaffold
-12. Collector
+12. 운영 Data Collector
 13. Normalizer
 14. Database
 15. Matching Engine
@@ -688,7 +736,10 @@ Bizinfo API Call             DONE
 Bizinfo 20 Sample            DONE
 Bizinfo Raw JSON             DONE
 Bizinfo Schema Check         DONE
-Bizinfo Large Sample         TODO
+Bizinfo Sample Collector     VERIFIED
+Bizinfo Large Sample         DONE (273 items)
+Eligibility Field Analysis  TODO
+Eligibility Schema Draft     TODO
 K-Startup API                TODO
 Policy Loan Data             TODO
 ```

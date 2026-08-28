@@ -174,6 +174,43 @@ Raw Data:
 
 Raw 데이터는 가공 전 원본 Snapshot으로 유지한다.
 
+### Sample Expansion Result — 2026-08-28
+
+[EXPERIMENT]
+
+`scripts/collect_bizinfo_samples.py`를 실제 실행하여 금융, 창업, 경영 분야의 Sample 확대를 완료했다.
+
+* Collector Exit Code: 0
+* 전체 HTTP Status: 200
+* 요청 `searchCnt`: 분야별 100
+* 실제 수집 Item: 총 273건
+
+| 지원분야 | `searchLclasId` | 실제 Item | `totCnt` | Raw Evidence |
+| --- | --- | ---: | ---: | --- |
+| 금융 | 01 | 100 | 220 | `data/raw/bizinfo/bizinfo_finance_sample.json` |
+| 창업 | 06 | 73 | 73 | `data/raw/bizinfo/bizinfo_startup_sample_100.json` |
+| 경영 | 07 | 100 | 461 | `data/raw/bizinfo/bizinfo_management_sample.json` |
+
+창업 분야는 `searchCnt=100`으로 요청했으나 전체 결과가 73건이므로 73건 수집은 정상이다.
+
+세 파일은 API Response Body를 재직렬화하지 않은 Raw Evidence로 저장했으며 `data/raw/` Git 제외 규칙의 적용을 확인했다.
+
+### Field Variability Finding
+
+분야별 Response Field가 완전히 동일하지 않을 가능성을 확인했다.
+
+분야별 첫 번째 Item에서 확인한 추가 Field:
+
+* 금융: `fileNm`, `flpthNm`, `rceptEngnHmpgUrl`
+* 창업: `fileNm`, `flpthNm`
+* 경영: 위 세 Field가 첫 번째 Item에는 존재하지 않음
+
+따라서 위 Field는 이후 Schema에서 Optional Field 후보로 검토한다.
+
+다만 이 결과는 분야별 첫 번째 Item만 확인한 관찰이며, 전체 273건의 Field 출현율 또는 결측률을 검증한 결과가 아니다.
+
+이번 Sample 확대만으로 새로운 Eligibility 조건이 검증되었거나 Eligibility Schema가 확정된 것으로 처리하지 않는다.
+
 ## Confirmed JSON Structure
 
 실제 응답은 다음 구조로 확인되었다.
@@ -498,9 +535,11 @@ LLM 또는 Parser가 비정형 조건을 구조화하더라도 최종 Matching�
 * [x] 상세공고 URL 확인
 * [x] 지원 대상 관련 정보 확인
 * [x] Raw JSON Snapshot 저장
-* [ ] 창업 분야 Sample 100건 이상 추가 검증
-* [ ] 금융 분야 Sample 검증
-* [ ] 경영 분야 Sample 검증
+* [x] 창업 분야 `searchCnt=100` 수집 검증 — 73건 / `totCnt` 73
+* [x] 금융 분야 Sample 검증 — 100건 / `totCnt` 220
+* [x] 경영 분야 Sample 검증 — 100건 / `totCnt` 461
+* [x] 3개 분야 Raw Sample 총 273건 저장
+* [ ] 전체 273건 Field 출현율 및 결측 패턴 분석
 * [ ] 업종 조건 구조화 가능성 정량 검증
 * [ ] 지역 조건 구조화 정확도 검증
 * [ ] Eligibility Extraction Schema 확정
@@ -1196,30 +1235,28 @@ LLM
 
 # 17. Next Data Verification
 
-DS-001의 최초 API 접근 및 Schema 확인은 완료되었다.
+DS-001의 최초 API 접근, 기본 Schema 확인 및 3개 분야 Sample 확대를 완료했다.
 
 따라서 다음 검증 순서는 다음과 같다.
 
-## Step 1 — 기업마당 Sample 확대
+## Step 1 — Eligibility 후보 Field 및 결측 패턴 분석
 
 목표:
 
-* 창업 분야 100건 이상 Sample 확보
-* 금융 분야 Sample 확보
-* 경영 분야 Sample 확보
-* 다양한 지역 공고 확보
-* 다양한 지원대상 공고 확보
+* 총 273건의 전체 Field 출현율 확인
+* 분야별 Field 차이 확인
+* Eligibility 후보 Field 식별
+* 현재 Draft Schema로 표현하기 어려운 조건 유형 식별
 
 확인할 항목:
 
-* Eligibility 조건 종류
 * 결측 패턴
 * 날짜 표현 방식
 * 지원금액 표현 방식
 * HTML 제거 필요성
 * 중복 공고 존재 여부
 
-## Step 2 — Eligibility Schema 검증
+## Step 2 — Eligibility Schema 초안 및 검증
 
 최소 30~50개 공고를 직접 확인하여
 
