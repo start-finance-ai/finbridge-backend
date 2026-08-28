@@ -128,6 +128,8 @@ VERIFIED
 - [x] 3개 분야 모두 HTTP 200 확인
 - [x] Sample Collector Exit Code 0 확인
 - [x] `data/raw/` Git 제외 규칙 적용 확인
+- [x] `scripts/analyze_bizinfo_samples.py` 구현
+- [x] 273건 전체 Field / Eligibility Review Candidate / 신청기간 / 금액 표현 Profile 완료
 
 Raw Files:
 
@@ -162,17 +164,16 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 - pldirSportRealmMlsfcCodeNm
 - printFileNm
 
-### Field Variability — Initial Observation
+### Full 273-Item Field Profile
 
-분야별 첫 번째 Item 확인 결과 다음 Field가 일관되게 존재하지 않을 가능성을 확인했다.
+- 전체 Item 273건, 고유 `pblancId` 273건, 중복 0건
+- 발견 Field 22개
+- 기본 Field 19개 모두 273/273 non-empty (100%)
+- `fileNm`: 185/273 (67.77%)
+- `flpthNm`: 185/273 (67.77%)
+- `rceptEngnHmpgUrl`: 128/273 (46.89%)
 
-- 금융: `fileNm`, `flpthNm`, `rceptEngnHmpgUrl` 확인
-- 창업: `fileNm`, `flpthNm` 확인
-- 경영: 위 세 Field가 첫 번째 Item에는 존재하지 않음
-
-위 Field는 Optional 후보이며, 전체 273건의 출현율과 결측률은 아직 분석하지 않았다.
-
-Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되지 않았다.
+위 세 Field는 Optional로 다뤄야 한다. Eligibility Review Candidate 자동 분석은 완료했지만 Human Label 검증과 Eligibility Schema Draft는 아직 완료되지 않았다.
 
 
 # 5. Important Data Findings
@@ -199,6 +200,8 @@ Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되
 
 실제 지원 가능 여부에 중요한 조건은 `bsnsSumryCn`에 자연어로 포함되는 경우가 많다.
 
+정규식 기반 Review Candidate 수는 지역/소재지 232, 연령 24(명시적 숫자 연령 19), 예비창업 29, 사업자 여부 91, 사업 업력 62, 업종 69, 사업자 유형 220, 매출/소득 16, 직원 수 6, 성별 7, 특정 자격/인증 14, 교육 이수 5, 추천/선정/평가 7건이다. 이 수치는 실제 Eligibility 확정 건수가 아니다.
+
 확인된 조건 유형:
 
 - 지역
@@ -217,7 +220,7 @@ Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되
 
 ## 5.3 `trgetNm` 단독 사용 불가
 
-실제 값은 다음과 같이 비교적 큰 범주다.
+전체 273건의 실제 값은 고유 7개뿐인 비교적 큰 범주다.
 
 - 창업벤처
 - 여성기업
@@ -228,6 +231,8 @@ Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되
 ## 5.4 `hashtags` 단독 사용 불가
 
 해시태그는 후보 검색과 Recall 향상에는 활용 가능하지만 최종 지원 자격의 단독 Evidence로 사용하지 않는다.
+
+273건 Eligibility Review Candidate 자동 분석에서도 `hashtags`를 Evidence에서 제외했다.
 
 
 ## 5.5 신청기간 Parsing 필요
@@ -243,6 +248,17 @@ Eligibility 후보 Field 분석과 Eligibility Schema 확정도 아직 완료되
 ```
 
 따라서 단순 `start_date / end_date` 구조만으로는 부족하다.
+
+273건 분류 결과는 명확한 날짜 범위 146, 예산 소진 시까지 97, 상시/수시 14, 별도 공지/참고 3, 차수/분야/세부사업별 상이 4, 기타 비정형 9, 결측 0건이다.
+
+
+## 5.6 지원금액 표현 Profile
+
+- 금액/한도 Keyword Review Candidate: 127건
+- 실제 금액 표현 탐지: 115건
+- 지원·융자·대출·보증 등 지원 문맥 동반 Review Candidate: 111건
+
+세 지표는 탐지 범위가 다르며 서로 같은 값으로 해석하지 않는다. Human Review 전에는 실제 지원금액 확정 건수로 사용하지 않는다.
 
 
 # 6. Current Architecture Decision
@@ -277,6 +293,8 @@ Official Data
 
 Data Verification Sample Collector 구현 및 실제 실행 검증 완료.
 
+Bizinfo 273건 자동 프로파일링 분석 스크립트 구현 및 실행 완료.
+
 Implemented:
 
 - `scripts/collect_bizinfo_samples.py`
@@ -285,6 +303,9 @@ Implemented:
 - Raw Response Bytes 보존 저장
 - HTTP, Network, JSON, Response Structure, File Save 오류 처리
 - 실제 실행 결과 Exit Code 0 및 Raw Sample 총 273건 저장 확인
+- `scripts/analyze_bizinfo_samples.py`
+- 273건 전체 Field 출현율, Eligibility Review Candidate, 신청기간, 금액 표현 Profile
+- 네트워크·LLM·DB 없이 Raw JSON 읽기 전용 분석
 
 아직 실제 Backend Application Scaffold를 생성하지 않았다.
 
@@ -398,6 +419,10 @@ Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우
 Status:
 
 DESIGN / DATA ANALYSIS
+
+- Automated Candidate Profile: COMPLETED (273 items)
+- Human Label Set: NOT STARTED
+- Eligibility Schema Draft: TODO
 
 현재 Draft Schema 후보:
 
@@ -571,6 +596,14 @@ NONE
 
 위 결과는 Data Verification Script의 실행 검증이며 Backend API 자동화 테스트가 아니다.
 
+### Analyzer Execution Verification
+
+- [x] Raw Sample 273건 전체 분석
+- [x] `pblancId` 고유 273건 / 중복 0건 확인
+- [x] Field / Eligibility Review Candidate / 신청기간 / 금액 표현 Profile 산출
+
+위 결과도 자동 후보 분석 실행 검증이며 Human Label 정확도 평가나 Backend API 자동화 테스트가 아니다.
+
 추후 최소 테스트 대상:
 
 - Data Normalization
@@ -588,6 +621,8 @@ NONE
 Status:
 
 NOT STARTED
+
+Human Label Set: NOT STARTED
 
 향후 Evaluation Set 후보:
 
@@ -686,9 +721,9 @@ Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
 
 ## P0
 
-1. 전체 273건 Eligibility 후보 Field 분석
-2. 분야별 Field 출현율 및 결측 패턴 분석
-3. Eligibility Schema 초안 작성 및 검증 대상 선정
+1. 분야 및 조건 유형별 Human Review Sample 선정
+2. 원문 Evidence 기반 Human Labeling
+3. false positive / 모호 사례 분석 후 Eligibility Schema Draft 작성
 
 ## P1
 
@@ -738,7 +773,9 @@ Bizinfo Raw JSON             DONE
 Bizinfo Schema Check         DONE
 Bizinfo Sample Collector     VERIFIED
 Bizinfo Large Sample         DONE (273 items)
-Eligibility Field Analysis  TODO
+Bizinfo Sample Analyzer      DONE (273 items)
+Eligibility Candidate Profile DONE (automated)
+Human Label Set              NOT STARTED
 Eligibility Schema Draft     TODO
 K-Startup API                TODO
 Policy Loan Data             TODO

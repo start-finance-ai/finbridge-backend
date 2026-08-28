@@ -195,21 +195,50 @@ Raw 데이터는 가공 전 원본 Snapshot으로 유지한다.
 
 세 파일은 API Response Body를 재직렬화하지 않은 Raw Evidence로 저장했으며 `data/raw/` Git 제외 규칙의 적용을 확인했다.
 
-### Field Variability Finding
+### Full 273-Item Automated Profile Result — 2026-08-28
 
-분야별 Response Field가 완전히 동일하지 않을 가능성을 확인했다.
+[EXPERIMENT / AUTOMATED REVIEW CANDIDATE]
 
-분야별 첫 번째 Item에서 확인한 추가 Field:
+`scripts/analyze_bizinfo_samples.py`로 금융, 창업, 경영 Raw Sample 273건 전체를 자동 분석했다.
 
-* 금융: `fileNm`, `flpthNm`, `rceptEngnHmpgUrl`
-* 창업: `fileNm`, `flpthNm`
-* 경영: 위 세 Field가 첫 번째 Item에는 존재하지 않음
+* 전체 Item: 273건
+* 고유 `pblancId`: 273건
+* 중복 `pblancId`: 0건
+* 전체 발견 Field: 22개
+* 기본 Field: 19개 모두 273/273 non-empty (100%)
 
-따라서 위 Field는 이후 Schema에서 Optional Field 후보로 검토한다.
+Optional Field의 전체 출현 및 non-empty 결과:
 
-다만 이 결과는 분야별 첫 번째 Item만 확인한 관찰이며, 전체 273건의 Field 출현율 또는 결측률을 검증한 결과가 아니다.
+| Field | non-empty | 출현율 |
+| --- | ---: | ---: |
+| `fileNm` | 185/273 | 67.77% |
+| `flpthNm` | 185/273 | 67.77% |
+| `rceptEngnHmpgUrl` | 128/273 | 46.89% |
 
-이번 Sample 확대만으로 새로운 Eligibility 조건이 검증되었거나 Eligibility Schema가 확정된 것으로 처리하지 않는다.
+따라서 위 세 Field는 전체 273건 실측 기준으로도 Optional Field로 다뤄야 한다.
+
+### Eligibility Review Candidate Profile
+
+아래 수치는 정규식 기반 자동 탐지 결과이며, 사람이 공고 문맥을 판정한 실제 Eligibility 확정 건수가 아니다.
+
+| 조건 유형 | Review Candidate | 비고 |
+| --- | ---: | --- |
+| 지역 / 소재지 | 232 | 기관명, 사업명, 지원 지역 소개 등 false positive 가능 |
+| 연령 | 24 | 연령 관련 표현 후보 |
+| 명시적 숫자 연령 | 19 | 숫자가 있어도 자격 범위인지 Human Review 필요 |
+| 예비창업 여부 | 29 | 대상 소개와 명시 조건 구분 필요 |
+| 사업자 여부 | 91 | 등록·보유·폐업 등 문맥 구분 필요 |
+| 사업 업력 | 62 | 업력 기준과 일반 창업 연차 표현 구분 필요 |
+| 업종 | 69 | 지원 분야 소개와 제한 업종 구분 필요 |
+| 중소기업 / 소상공인 등 사업자 유형 | 220 | coarse 대상 표현 포함 가능 |
+| 매출 / 소득 | 16 | 기준·제출서류·사업 설명 구분 필요 |
+| 직원 수 | 6 | 자격 기준인지 설명 문구인지 확인 필요 |
+| 성별 | 7 | 자격 조건과 사업명·대상 분류 구분 필요 |
+| 특정 자격 / 인증 | 14 | 필수 자격과 우대·사업 설명 구분 필요 |
+| 교육 이수 | 5 | 필수·사후 이수·권고 구분 필요 |
+| 추천 / 선정 / 평가 조건 | 7 | 신청 전제와 선발 절차 구분 필요 |
+
+`hashtags`는 이 Eligibility Review Candidate 탐지 및 Evidence에서 제외했다. 자동 후보 분석은 전체 273건에 대해 완료했지만 Human Label 검증은 아직 시작하지 않았고, Eligibility Schema도 확정하지 않았다.
 
 ## Confirmed JSON Structure
 
@@ -296,7 +325,7 @@ jsonArray
 
 ## Important Finding 2 — `trgetNm`의 한계
 
-`trgetNm`은 실제 Sample에서 다음과 같은 비교적 큰 범주로 제공되었다.
+`trgetNm`은 전체 273건에서 고유 값이 7개뿐인 비교적 큰 범주로 제공되었다.
 
 예:
 
@@ -367,6 +396,18 @@ hashtags에 "경기" 포함
 
 `reqstBeginEndDe`는 항상 동일한 날짜 형식으로 제공되지 않는다.
 
+전체 273건 자동 분류 결과:
+
+| 패턴 | 건수 |
+| --- | ---: |
+| 명확한 시작일 / 종료일 | 146 |
+| 예산 소진 시까지 | 97 |
+| 상시 / 수시 | 14 |
+| 별도 공지 / 공고문 참고 | 3 |
+| 차수 / 분야 / 세부사업별 상이 | 4 |
+| 기타 비정형 | 9 |
+| 결측 | 0 |
+
 실제 확인된 예:
 
 ```text
@@ -410,6 +451,14 @@ apply_end DATE
 ## Important Finding 6 — 지원금액
 
 지원금액도 별도 정형 필드로 일관되게 제공되지 않고 `bsnsSumryCn` 안에 자연어로 포함되는 사례가 확인되었다.
+
+전체 273건 자동 분석에서 서로 다른 세 지표가 확인되었다.
+
+* 금액 / 한도 Keyword Review Candidate: 127건
+* 실제 금액 표현 탐지: 115건
+* 지원·융자·대출·보증 등 지원 문맥을 함께 가진 금액 Review Candidate: 111건
+
+위 수치는 탐지 목적과 범위가 다르므로 서로 같은 지표로 해석하지 않는다. 특히 금액 표현 탐지는 실제 지원금액 Eligibility 또는 지급액의 확정을 의미하지 않는다.
 
 실제 Sample에서 다음 형태가 존재한다.
 
@@ -539,7 +588,11 @@ LLM 또는 Parser가 비정형 조건을 구조화하더라도 최종 Matching�
 * [x] 금융 분야 Sample 검증 — 100건 / `totCnt` 220
 * [x] 경영 분야 Sample 검증 — 100건 / `totCnt` 461
 * [x] 3개 분야 Raw Sample 총 273건 저장
-* [ ] 전체 273건 Field 출현율 및 결측 패턴 분석
+* [x] 전체 273건 Field 출현율 및 결측 패턴 자동 분석
+* [x] 전체 273건 Eligibility Review Candidate 자동 분석
+* [x] 전체 273건 신청기간 패턴 자동 분류
+* [x] 전체 273건 금액 표현 및 지원 문맥 후보 자동 분석
+* [ ] Human Review Sample 선정 및 Labeling
 * [ ] 업종 조건 구조화 가능성 정량 검증
 * [ ] 지역 조건 구조화 정확도 검증
 * [ ] Eligibility Extraction Schema 확정
@@ -1235,28 +1288,28 @@ LLM
 
 # 17. Next Data Verification
 
-DS-001의 최초 API 접근, 기본 Schema 확인 및 3개 분야 Sample 확대를 완료했다.
+DS-001의 최초 API 접근, 기본 Schema 확인, 3개 분야 Sample 확대 및 273건 전체 자동 후보 분석을 완료했다.
 
 따라서 다음 검증 순서는 다음과 같다.
 
-## Step 1 — Eligibility 후보 Field 및 결측 패턴 분석
+## Step 1 — Human Review Sample 선정 및 Labeling
 
 목표:
 
-* 총 273건의 전체 Field 출현율 확인
-* 분야별 Field 차이 확인
-* Eligibility 후보 Field 식별
-* 현재 Draft Schema로 표현하기 어려운 조건 유형 식별
+* 금융, 창업, 경영 및 조건 유형별 대표 공고 선정
+* 정규식 Review Candidate의 실제 자격 조건 여부 검토
+* false positive와 모호한 문장 사례 기록
+* 사람이 확인한 원문 Evidence 범위 기록
 
 확인할 항목:
 
-* 결측 패턴
-* 날짜 표현 방식
-* 지원금액 표현 방식
-* HTML 제거 필요성
-* 중복 공고 존재 여부
+* 지역, 연령, 업력, 사업자 여부, 업종 등 주요 조건
+* 신청기간 비정형 패턴
+* 금액 표현과 실제 지원 문맥의 차이
+* `trgetNm` coarse target과 세부 Eligibility의 차이
+* 자동 탐지 누락 및 과탐 사례
 
-## Step 2 — Eligibility Schema 초안 및 검증
+## Step 2 — Human Label 근거 Eligibility Schema 초안 및 검증
 
 최소 30~50개 공고를 직접 확인하여
 
