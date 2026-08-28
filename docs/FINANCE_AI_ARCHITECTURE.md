@@ -1,0 +1,1075 @@
+# FINANCE AI — Architecture
+
+Last Updated: 2026-08-28
+
+이 문서는 2026 금융 AI Challenge MVP의 AI / Backend / Data / Infra Architecture를 정의한다.
+
+현재 Architecture는 실제 기업마당 지원사업정보 API 검증 결과를 기반으로 설계한다.
+
+특정 Framework, Database, LLM Provider, Cloud Platform은 아직 확정하지 않는다.
+
+기술 선택보다 다음을 우선한다.
+
+* 실제 데이터 기반 동작
+* 결정론적 금융 계산
+* 설명 가능한 지원사업 Matching
+* Evidence 유지
+* Unsupported 처리
+* Public Web MVP 안정성
+
+# 1. Architecture Goal
+
+사용자가 자신의 상황을 입력하면
+
+```text
+사용자 입력
+→ 지원사업 후보 탐색
+→ 비정형 자격조건 구조화
+→ 사용자 조건과 deterministic matching
+→ 재무·리스크 계산
+→ Evidence 검증
+→ 생성형 AI 설명
+→ 출처 및 다음 행동 제공
+```
+
+까지 실제 Backend에서 처리한다.
+
+LLM이 지원사업 검색, 자격판정, 금융계산을 모두 직접 수행하는 구조는 사용하지 않는다.
+
+# 2. Verified Data Finding
+
+[EXPERIMENT]
+
+2026-08-28 기업마당 지원사업정보 API 실측 결과:
+
+* API 호출 성공
+* HTTP 200 확인
+* 창업 분야 20건 JSON 확보
+* Raw JSON 저장 완료
+* 실제 Response Field 확인
+* 상세 Eligibility가 `bsnsSumryCn` 자연어에 포함되는 사례 확인
+* 신청기간이 고정 날짜뿐 아니라 `예산 소진시까지` 형태로도 존재
+* 지원금액 역시 자연어 안에 포함되는 사례 확인
+
+따라서 지원사업 데이터는
+
+**완전한 정형 데이터도 아니고 완전한 비정형 문서도 아니다.**
+
+다음 두 영역을 함께 처리해야 한다.
+
+### Structured
+
+* 공고 ID
+* 공고명
+* 기관
+* 지원분야
+* 등록일
+* 수정일
+* URL
+
+### Unstructured / Semi-Structured
+
+* 지역 조건
+* 연령
+* 창업 여부
+* 창업 업력
+* 사업장 소재지
+* 업종
+* 교육 이수
+* 자격증
+* 지원금액
+* 추가 Eligibility 조건
+
+# 3. High-Level Architecture
+
+```text
+┌─────────────────────────────┐
+│          Frontend           │
+│ Profile / Risk / AI Result  │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│         Backend API         │
+│ Validation / Orchestration  │
+└──────────────┬──────────────┘
+               │
+       ┌───────┴────────┐
+       │                │
+       ▼                ▼
+┌───────────────┐  ┌────────────────┐
+│ Program       │  │ Calculation    │
+│ Retrieval     │  │ Engine         │
+└───────┬───────┘  └───────┬────────┘
+        │                  │
+        ▼                  │
+┌───────────────────────┐ │
+│ Eligibility           │ │
+│ Constraint Extraction │ │
+└───────────┬───────────┘ │
+            ▼             │
+┌───────────────────────┐ │
+│ Deterministic         │ │
+│ Matching Engine       │ │
+└───────────┬───────────┘ │
+            │             │
+            └──────┬──────┘
+                   ▼
+          ┌──────────────────┐
+          │ Evidence         │
+          │ Validation       │
+          └────────┬─────────┘
+                   ▼
+          ┌──────────────────┐
+          │ LLM Explanation  │
+          └────────┬─────────┘
+                   ▼
+          ┌──────────────────┐
+          │ Final Response   │
+          │ + Source         │
+          │ + Next Action    │
+          └──────────────────┘
+```
+
+# 4. Main Processing Flow
+
+## 4.1 User Input
+
+Frontend에서 사용자 입력을 받는다.
+
+현재 Profile 후보:
+
+* user_type
+* region
+* industry
+* capital
+
+기업마당 데이터 실측 결과 추가로 필요할 수 있는 정보:
+
+* age
+* business_status
+* business_age
+* business_location
+* gender
+* certificate
+* education completion
+
+모든 정보를 처음부터 요구하지 않는다.
+
+필요한 공고가 검색된 이후 추가 조건만 질문하는 방식을 우선 검토한다.
+
+## 4.2 Request Validation
+
+Backend API에서 사용자 입력을 검증한다.
+
+검증 후보:
+
+* 필수값
+* Enum
+* 숫자 범위
+* 날짜
+* 문자열 길이
+* 파일 형식
+* 비정상 입력
+
+잘못된 입력을 그대로 Retrieval 또는 LLM에 전달하지 않는다.
+
+## 4.3 Candidate Retrieval
+
+지원사업 후보를 먼저 좁힌다.
+
+우선순위:
+
+1. Structured Filter
+2. Exact / Keyword Search
+3. 필요한 경우에만 Semantic Retrieval
+
+예:
+
+```text
+사용자 = 예비창업자
+관심 분야 = 창업
+지역 = 경기
+```
+
+일 때 전체 공고를 LLM에 전달하지 않는다.
+
+먼저 Backend에서 관련 후보군을 검색한다.
+
+# 5. Program Retrieval
+
+## 5.1 Structured Retrieval
+
+다음은 RDB 또는 Structured Query를 우선한다.
+
+* program_id
+* category
+* subcategory
+* provider
+* created_at
+* updated_at
+* 신청 상태
+* 명확하게 구조화된 조건
+
+## 5.2 Keyword Retrieval
+
+다음은 Keyword / Exact Search 우선 후보이다.
+
+* 공고명
+* 기관명
+* 업종 Keyword
+* 지역 Keyword
+* 지원분야
+
+## 5.3 Semantic Retrieval
+
+다음 경우에만 Semantic Retrieval을 검토한다.
+
+* 사용자 표현과 공고 표현이 다른 경우
+* 긴 공고문에서 관련 조건을 찾아야 하는 경우
+* Keyword Search만으로 Recall이 낮은 경우
+
+Vector DB 사용은 아직 확정하지 않는다.
+
+단순 DB + Text Search로 충분하면 Vector DB를 도입하지 않는다.
+
+# 6. Eligibility Constraint Extraction
+
+현재 Architecture에서 AI가 필요한 핵심 영역이다.
+
+기업마당의 `bsnsSumryCn`과 향후 원문 공고에서 자연어 조건을 추출한다.
+
+예시 원문:
+
+```text
+공고일 기준 영월군 관내 주소지를 둔 자 또는
+사업자 선정 후 1개월 이내 영월군에 주소 이전 가능한 자
+
+18세 이상 45세 이하
+
+예비창업자 또는 창업 후 7년 이내
+```
+
+이를 다음과 같은 구조로 변환하는 방향을 검토한다.
+
+```json
+{
+  "region": ["강원특별자치도 영월군"],
+  "region_rule": "RESIDENT_OR_MOVE_AFTER_SELECTION",
+  "age_min": 18,
+  "age_max": 45,
+  "business_status": [
+    "PRE_FOUNDER",
+    "EXISTING_BUSINESS"
+  ],
+  "business_age_max_years": 7
+}
+```
+
+중요:
+
+추출된 값 자체가 최종 Truth는 아니다.
+
+원문 Evidence와 함께 저장한다.
+
+# 7. Eligibility Evidence
+
+각 구조화 조건은 가능한 경우 다음 정보를 가진다.
+
+```text
+condition_type
+normalized_value
+source_field
+evidence_text
+extraction_method
+confidence
+validation_status
+```
+
+예:
+
+```json
+{
+  "condition_type": "AGE",
+  "normalized_value": {
+    "min": 18,
+    "max": 45
+  },
+  "source_field": "bsnsSumryCn",
+  "evidence_text": "18세 이상 45세 이하",
+  "extraction_method": "LLM_EXTRACTION",
+  "validation_status": "PENDING"
+}
+```
+
+원문 Evidence 없이 구조화 값만 저장하는 방식은 피한다.
+
+# 8. Deterministic Matching Engine
+
+LLM이 사용자의 최종 지원 가능 여부를 직접 판정하지 않는다.
+
+구조화된 Eligibility와 사용자 Profile을 코드에서 비교한다.
+
+예:
+
+```text
+User
+region = 경기
+
+Program
+region = 영월군
+
+Result
+REGION = NOT_MATCHED
+```
+
+또는:
+
+```text
+User
+age = 27
+
+Program
+age_min = 18
+age_max = 45
+
+Result
+AGE = MATCHED
+```
+
+# 9. Match Status
+
+초기 상태 후보:
+
+## MATCHED
+
+현재 확보된 사용자 정보와 공고 조건이 일치한다.
+
+## NOT_MATCHED
+
+명확한 공고 조건과 사용자의 정보가 불일치한다.
+
+## NEEDS_REVIEW
+
+공고 조건이 복잡하거나 현재 사용자 정보가 부족해 자동 판정하기 어렵다.
+
+## UNKNOWN
+
+원천 데이터 자체에서 조건을 확인할 수 없다.
+
+최종 Enum 이름은 구현 단계에서 조정할 수 있다.
+
+# 10. Matching Result
+
+지원사업별로 단순 Score만 반환하지 않는다.
+
+예시:
+
+```json
+{
+  "program_id": "PBLN_xxx",
+  "status": "NEEDS_REVIEW",
+  "conditions": [
+    {
+      "type": "AGE",
+      "status": "MATCHED"
+    },
+    {
+      "type": "REGION",
+      "status": "NOT_MATCHED"
+    },
+    {
+      "type": "BUSINESS_AGE",
+      "status": "UNKNOWN"
+    }
+  ]
+}
+```
+
+사용자는 왜 이런 결과가 나왔는지 확인할 수 있어야 한다.
+
+# 11. Adaptive Question
+
+초기 Profile 입력을 지나치게 크게 만들지 않는다.
+
+추천 구조:
+
+```text
+기본 Profile 입력
+        ↓
+지원사업 후보 검색
+        ↓
+해당 공고에 필요한 추가 조건 파악
+        ↓
+사용자에게 필요한 질문만 추가
+        ↓
+최종 Matching
+```
+
+예:
+
+어떤 공고가
+
+* 여성
+* 39세 이하
+* 대구 소재
+
+조건을 요구한다면 필요한 경우에만 해당 정보를 추가로 확인한다.
+
+MVP 구현 난이도가 높으면 첫 버전에서는 고정 Profile 방식으로 시작할 수 있다.
+
+# 12. Calculation Engine
+
+금융 및 리스크 계산은 별도 Calculation Engine에서 수행한다.
+
+LLM에게 계산을 맡기지 않는다.
+
+현재 후보 입력:
+
+* initial_cost
+* own_capital
+* monthly_revenue
+* monthly_expense
+* loan_amount
+* interest_rate
+* loan_term
+
+현재 후보 출력:
+
+* monthly_cash_flow
+* cash_burn
+* runway
+* debt_balance
+* estimated_remaining_debt
+
+최종 계산식은 별도 검증 후 확정한다.
+
+# 13. Calculation Requirements
+
+Calculation Engine은 다음 원칙을 따른다.
+
+* 동일 입력 → 동일 결과
+* 명확한 단위
+* 명확한 계산식
+* 경계값 정의
+* 결측 처리 정의
+* 테스트 작성
+
+예:
+
+```text
+월매출
+- 월지출
+- 월상환액
+= 월 현금흐름
+```
+
+실제 최종 계산식은 팀 결정 및 금융 검증 이후 적용한다.
+
+# 14. Evidence Validation
+
+최종 사용자 응답에 들어가기 전에 Evidence를 검증한다.
+
+검증 대상:
+
+* 지원사업 실제 존재 여부
+* Program ID
+* 공고 URL
+* 추출 Eligibility
+* 신청기간
+* 지원금액
+* 계산 결과
+
+지원사업 데이터와 LLM 답변이 충돌할 경우 원본 데이터가 우선한다.
+
+# 15. LLM Role
+
+LLM은 다음 역할에 사용한다.
+
+## Input Understanding
+
+* 사용자 자연어 질문 이해
+* 필요한 조건 추출
+* 추가 질문 생성
+
+## Eligibility Extraction
+
+* 비정형 지원사업 설명에서 자격조건 후보 추출
+
+## Explanation
+
+검증된 결과를 사용자가 이해하기 쉽게 설명한다.
+
+예:
+
+```text
+현재 입력하신 정보 기준으로 연령 조건은 충족하지만,
+해당 사업은 영월군 거주 또는 선정 후 주소 이전 조건이 있어
+지역 조건 확인이 추가로 필요합니다.
+```
+
+## Summary
+
+* 지원내용 요약
+* 중요한 자격조건 요약
+* 신청 시 확인해야 할 사항 안내
+
+# 16. LLM Must Not Do
+
+LLM이 직접 수행하지 않는 영역:
+
+* 존재하지 않는 지원사업 생성
+* 지원금액 생성
+* 대출금리 생성
+* 최종 자격 보장
+* 금융계산
+* 신청기간 계산
+* 날짜 비교
+* Top-N 산술
+* 최종 Eligibility Logic
+* 데이터에 없는 제도 생성
+
+# 17. Recommended Runtime Flow
+
+사용자가 지원사업 탐색을 요청했을 때:
+
+```text
+1. Frontend Request
+
+2. API Validation
+
+3. User Profile Parsing
+
+4. Candidate Program Retrieval
+
+5. Program Eligibility Load
+
+6. 누락 시 Eligibility Extraction
+
+7. Deterministic Matching
+
+8. Evidence Validation
+
+9. LLM Explanation
+
+10. API Response
+
+11. Frontend Result
+```
+
+# 18. Data Collection Flow
+
+기업마당 데이터는 사용자 요청 때마다 무조건 외부 API에서 전부 가져오는 구조를 우선하지 않는다.
+
+권장 방향:
+
+```text
+기업마당 API
+→ Collector
+→ Raw Snapshot
+→ Normalization
+→ Eligibility Extraction
+→ Validation
+→ Service DB
+```
+
+사용자 요청:
+
+```text
+Frontend
+→ Backend
+→ Service DB
+→ Matching
+```
+
+이렇게 분리하면 외부 API 장애와 Latency 영향을 줄일 수 있다.
+
+# 19. Raw Data
+
+Raw 데이터는 원본 형태로 보존한다.
+
+현재:
+
+```text
+data/
+└─ raw/
+   └─ bizinfo/
+      └─ bizinfo_startup_sample.json
+```
+
+원본을 수정하여 덮어쓰지 않는다.
+
+실제 운영 수집 방식은 추후 결정한다.
+
+# 20. Normalized Data
+
+Raw API 데이터를 서비스 내부 공통 Schema로 변환한다.
+
+예:
+
+```text
+Raw:
+pblancId
+
+Normalized:
+program_id
+```
+
+```text
+Raw:
+pblancNm
+
+Normalized:
+program_name
+```
+
+Source별 필드명 차이를 Service Layer까지 그대로 전파하지 않는다.
+
+# 21. Backend Logical Modules
+
+현재 권장 관심사:
+
+```text
+backend/
+│
+├─ api/
+│
+├─ services/
+│
+├─ data/
+│  ├─ collectors/
+│  ├─ normalizers/
+│  └─ repositories/
+│
+├─ retrieval/
+│
+├─ eligibility/
+│  ├─ extraction/
+│  ├─ matching/
+│  └─ validation/
+│
+├─ calculation/
+│
+├─ ai/
+│
+├─ schemas/
+│
+├─ models/
+│
+├─ evaluation/
+│
+└─ tests/
+```
+
+실제 Framework가 결정되면 해당 Framework 관례에 맞게 변경할 수 있다.
+
+# 22. API Candidate Structure
+
+아직 최종 Endpoint는 아니다.
+
+후보:
+
+```text
+GET /health
+```
+
+서비스 상태 확인.
+
+```text
+POST /programs/match
+```
+
+사용자 Profile 기반 지원사업 Matching.
+
+```text
+GET /programs/{program_id}
+```
+
+지원사업 상세 조회.
+
+```text
+POST /risk/calculate
+```
+
+재무·창업 리스크 계산.
+
+```text
+POST /ai/explain
+```
+
+검증된 검색 및 계산 결과 설명.
+
+실제 Endpoint는 Frontend 계약과 함께 확정한다.
+
+# 23. API Response Principle
+
+Frontend가 LLM 자연어만 받는 구조를 피한다.
+
+예:
+
+```json
+{
+  "program": {},
+  "match": {},
+  "evidence": [],
+  "explanation": "",
+  "source": {}
+}
+```
+
+즉,
+
+**Structured Result + AI Explanation**
+
+을 함께 반환한다.
+
+# 24. Unsupported Handling
+
+Backend에서 다음 상태를 지원해야 한다.
+
+## DATA_NOT_FOUND
+
+관련 데이터가 존재하지 않는다.
+
+## INSUFFICIENT_USER_INPUT
+
+판단에 필요한 사용자 정보가 부족하다.
+
+## ELIGIBILITY_UNKNOWN
+
+공고 자체에서 자격조건을 명확하게 확인할 수 없다.
+
+## EXTERNAL_API_ERROR
+
+외부 Data Source 호출 실패.
+
+## LLM_ERROR
+
+LLM 호출 실패.
+
+LLM 실패 시 Structured Matching 결과까지 사라지지 않도록 한다.
+
+# 25. LLM Failure Fallback
+
+정상:
+
+```text
+Structured Matching
++
+LLM Explanation
+```
+
+LLM 장애:
+
+```text
+Structured Matching
++
+Evidence
++
+Template Explanation
+```
+
+LLM 장애가 전체 서비스를 중단시키지 않아야 한다.
+
+# 26. External API Failure
+
+기업마당 API 장애 시 사용자 요청 전체가 즉시 실패하지 않게 한다.
+
+가능한 방향:
+
+```text
+기업마당 API
+     ↓
+Local Service DB / Snapshot
+```
+
+사용자 요청은 Local DB를 우선 조회하는 구조를 검토한다.
+
+데이터 최신 기준일을 화면에 표시할 수 있어야 한다.
+
+# 27. Security
+
+다음을 Source Code에 직접 작성하지 않는다.
+
+* 기업마당 인증키
+* LLM API Key
+* Database Password
+* Cloud Secret
+* Access Token
+
+환경변수를 사용한다.
+
+```text
+.env
+```
+
+는 Git에서 제외한다.
+
+```text
+.env.example
+```
+
+에는 변수명만 작성한다.
+
+# 28. User Financial Data
+
+사용자의 매출·소득 등 금융정보는 최소 범위만 처리한다.
+
+MVP에서는 가능한 경우:
+
+```text
+Frontend
+→ Backend 처리
+→ 결과 반환
+→ 원본 장기 저장하지 않음
+```
+
+방향을 우선 검토한다.
+
+민감 원문을 일반 Application Log에 기록하지 않는다.
+
+# 29. Logging
+
+기록 후보:
+
+* Request ID
+* API Endpoint
+* Status Code
+* Processing Time
+* External API 상태
+* LLM 성공/실패
+* Parsing 상태
+* Matching 상태
+
+기록하지 않는 것:
+
+* API Key
+* Password
+* 전체 금융 원문
+* 불필요한 개인정보
+
+# 30. Health Check
+
+Public MVP에는 Health Check Endpoint를 제공하는 방향을 우선한다.
+
+예:
+
+```text
+GET /health
+```
+
+확인 후보:
+
+* Backend Process
+* Database Connection
+
+외부 LLM 또는 외부 API가 잠시 실패했다고 Health Check 전체를 반드시 Down으로 만들 필요는 없다.
+
+# 31. Evaluation Architecture
+
+실제 서비스 기능뿐 아니라 내부 Evaluation을 준비한다.
+
+추천 Dataset:
+
+```text
+evaluation/
+├─ retrieval_cases
+├─ eligibility_cases
+├─ calculation_cases
+├─ unsupported_cases
+└─ prompt_injection_cases
+```
+
+측정 후보:
+
+* Retrieval Accuracy
+* Eligibility Extraction Accuracy
+* Matching Accuracy
+* Calculation Accuracy
+* Unsupported Detection
+* Hallucination Rate
+* Latency
+
+# 32. Eligibility Evaluation
+
+특히 중요하다.
+
+공고 Sample 일부를 사람이 직접 정답 Label로 만든다.
+
+예:
+
+```json
+{
+  "program_id": "PBLN_xxx",
+  "region": "영월군",
+  "age_min": 18,
+  "age_max": 45,
+  "business_age_max": 7
+}
+```
+
+AI Extractor 결과와 비교하여 정확도를 측정한다.
+
+이 검증 없이 Eligibility Extraction이 정확하다고 주장하지 않는다.
+
+# 33. Retrieval Baseline
+
+처음부터 Vector Retrieval을 사용하지 않는다.
+
+Baseline:
+
+```text
+Structured Filter
++
+Keyword Search
+```
+
+이후 실제 Evaluation에서 Recall 문제가 확인되는 경우에만
+
+```text
+Structured
++
+Keyword
++
+Vector
+```
+
+를 비교한다.
+
+성능 개선이 없으면 Vector Retrieval을 제거한다.
+
+# 34. Infrastructure Requirements
+
+최종 MVP는 다음 조건을 만족해야 한다.
+
+* Public URL
+* HTTPS
+* Frontend / Backend 연결
+* Backend 자동 재시작 가능
+* 환경변수 관리
+* 외부 API Timeout
+* LLM Timeout
+* DB 연결 안정성
+* Error Handling
+* Health Check
+* Logging
+* 브라우저 새로고침 정상 동작
+
+# 35. Deployment Architecture — Draft
+
+현재 특정 Cloud는 확정하지 않는다.
+
+논리 구조:
+
+```text
+Internet
+   ↓
+Frontend Hosting
+   ↓ HTTPS
+Backend Service
+   ↓
+Service Database
+   ↓
+External Data Source / LLM API
+```
+
+외부 API Key는 서버 환경변수에서 관리한다.
+
+Frontend에 Secret을 노출하지 않는다.
+
+# 36. Technology Decisions Not Yet Frozen
+
+현재 확정하지 않은 사항:
+
+* Backend Framework
+* Programming Language 최종 선택
+* Database
+* ORM
+* LLM Provider
+* LLM Model
+* Embedding Model
+* Vector DB
+* Agent Framework
+* Cloud Provider
+* Frontend Hosting
+* Backend Hosting
+* Scheduler
+* Queue
+* Cache
+
+필요성과 구현기간을 검토한 뒤 Architecture Freeze 시 확정한다.
+
+# 37. Architecture Freeze Conditions
+
+다음 조건이 충족된 후 주요 기술을 확정한다.
+
+* 기업마당 Sample 확대 검증
+* Eligibility Schema 검증
+* 정책자금 Source 검증
+* 실제 MVP 입력항목 확정
+* 리스크 계산식 확정
+* Frontend API 요구사항 확인
+
+이후:
+
+```text
+Data Schema
+→ API Contract
+→ Framework
+→ Database
+→ LLM
+→ Deployment
+```
+
+순서로 확정한다.
+
+# 38. Current Architecture Decision
+
+[TEAM DECISION / CURRENT]
+
+현재 핵심 Backend Architecture는 다음을 우선한다.
+
+```text
+Official Data
+→ Raw Snapshot
+→ Normalization
+→ Eligibility Extraction
+→ Structured Eligibility
+→ Deterministic Matching
+→ Deterministic Calculation
+→ Evidence Validation
+→ LLM Explanation
+→ Final Result + Source
+```
+
+핵심 원칙:
+
+1. LLM이 최종 자격조건을 임의 판정하지 않는다.
+2. 금융 계산은 Backend 코드에서 수행한다.
+3. 구조화 가능한 조건은 구조화한다.
+4. 원문 Evidence를 유지한다.
+5. 데이터에 없는 사실을 생성하지 않는다.
+6. AI 장애가 전체 서비스 장애로 이어지지 않게 한다.
+7. 기술 수보다 실제 동작하는 MVP를 우선한다.
+
+# 39. Immediate Next Step
+
+Architecture 문서 작성 이후 바로 대규모 Backend 구현을 시작하지 않는다.
+
+다음 순서:
+
+1. 기업마당 Sample 확대
+2. Eligibility 조건 유형 분석
+3. Eligibility Schema 검증
+4. 정책자금 데이터 Source 검증
+5. 핵심 리스크 계산식 결정
+6. MVP 입력값 확정
+7. Architecture Freeze
+8. Backend Scaffold 생성
+9. Data Pipeline 구현
+10. Matching Engine 구현
+11. Calculation Engine 구현
+12. AI Integration
+13. Frontend Integration
+14. Deployment
+15. QA / Evaluation

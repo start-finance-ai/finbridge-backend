@@ -1,0 +1,723 @@
+# FINANCE AI — Development Status
+
+Last Updated: 2026-08-28
+
+이 문서는 2026 금융 AI Challenge Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
+
+구현되지 않은 기능을 완료된 것처럼 기록하지 않는다.
+
+상태는 실제 코드, 데이터 검증, 테스트 결과를 기준으로 갱신한다.
+
+
+# 1. Current Phase
+
+Current Phase:
+
+G2 — Data Verification
+→ G3 Architecture Freeze 준비 단계
+
+현재는 대규모 Backend 구현 전 단계이다.
+
+기업마당 Main Data Source의 최초 실측 검증은 완료했으며, Eligibility Schema와 정책자금 데이터, 리스크 계산식 등을 추가 검증한 뒤 Architecture Freeze를 진행한다.
+
+
+# 2. Repository
+
+Backend Repository:
+
+```text
+start-finance-ai/backend
+```
+
+현재 주요 구조:
+
+```text
+backend/
+├─ AGENTS.md
+├─ README.md
+│
+├─ docs/
+│  ├─ FINANCE_AI_GROUND_TRUTH.md
+│  ├─ FINANCE_AI_MVP_SCOPE.md
+│  ├─ FINANCE_AI_ARCHITECTURE.md
+│  ├─ DATA_SOURCES.md
+│  ├─ FINANCE_AI_DEV_STATUS.md
+│  │
+│  └─ planning/
+│     └─ 2026_금융_AI_Challenge_기획서_AI_Backend_Data_Infra_담당초안.md
+│
+└─ data/
+   └─ raw/
+      └─ bizinfo/
+         └─ bizinfo_startup_sample.json
+```
+
+
+# 3. Documentation Status
+
+## COMPLETED
+
+- [x] `AGENTS.md`
+- [x] `FINANCE_AI_GROUND_TRUTH.md`
+- [x] `FINANCE_AI_MVP_SCOPE.md`
+- [x] `DATA_SOURCES.md`
+- [x] `FINANCE_AI_ARCHITECTURE.md`
+- [x] AI / Backend / Data / Infra 담당 기획 초안 보관
+- [x] `FINANCE_AI_DEV_STATUS.md` 최초 작성
+
+## NOT YET FINAL
+
+현재 문서는 개발 과정에서 계속 갱신한다.
+
+특히 다음은 아직 Freeze 상태가 아니다.
+
+- Architecture
+- Program Schema
+- Eligibility Schema
+- User Profile Schema
+- Risk Calculation Formula
+- API Contract
+- Technology Stack
+
+
+# 4. Data Verification Status
+
+## DS-001 기업마당 지원사업정보 API
+
+Status:
+
+VERIFIED
+
+### Verified
+
+- [x] 공식 API 존재 확인
+- [x] API 사용 신청
+- [x] 인증키 발급
+- [x] 실제 GET 호출 성공
+- [x] HTTP 200 확인
+- [x] JSON Response 확인
+- [x] 창업 분야 20건 Sample 확보
+- [x] Response Item Count = 20 확인
+- [x] Sample 기준 totCnt = 71 확인
+- [x] Raw JSON 저장
+- [x] 실제 Response Field 확인
+- [x] 상세 지원조건이 `bsnsSumryCn`에 존재함을 확인
+- [x] 비정형 신청기간 존재 확인
+- [x] 지원금액이 자연어에 포함되는 사례 확인
+- [x] 지자체 지원사업 존재 확인
+
+Raw File:
+
+```text
+data/raw/bizinfo/bizinfo_startup_sample.json
+```
+
+### Confirmed Raw Fields
+
+- trgetNm
+- updtPnttm
+- hashtags
+- inqireCo
+- creatPnttm
+- pblancNm
+- pblancId
+- printFlpthNm
+- refrncNm
+- pblancUrl
+- jrsdInsttNm
+- excInsttNm
+- totCnt
+- reqstMthPapersCn
+- pldirSportRealmLclasCodeNm
+- reqstBeginEndDe
+- bsnsSumryCn
+- pldirSportRealmMlsfcCodeNm
+- printFileNm
+
+
+# 5. Important Data Findings
+
+[EXPERIMENT]
+
+기업마당 실제 데이터 검증 결과 다음을 확인했다.
+
+## 5.1 Structured Data
+
+다음은 비교적 직접적인 Structured Data로 사용할 수 있다.
+
+- 공고 ID
+- 공고명
+- 기관
+- 지원분야
+- 등록일
+- 수정일
+- 공고 URL
+- 공고문 URL
+
+
+## 5.2 Eligibility는 대부분 비정형
+
+실제 지원 가능 여부에 중요한 조건은 `bsnsSumryCn`에 자연어로 포함되는 경우가 많다.
+
+확인된 조건 유형:
+
+- 지역
+- 연령
+- 예비창업 여부
+- 창업 업력
+- 사업자등록 상태
+- 여성 여부
+- 사업장 소재지
+- 업종
+- 교육 이수
+- 특정 자격
+- 특정 기관 추천
+- 기타 복합조건
+
+
+## 5.3 `trgetNm` 단독 사용 불가
+
+실제 값은 다음과 같이 비교적 큰 범주다.
+
+- 창업벤처
+- 여성기업
+
+최종 Eligibility 판정에는 부족하다.
+
+
+## 5.4 `hashtags` 단독 사용 불가
+
+해시태그는 후보 검색과 Recall 향상에는 활용 가능하지만 최종 지원 자격의 단독 Evidence로 사용하지 않는다.
+
+
+## 5.5 신청기간 Parsing 필요
+
+확인 사례:
+
+```text
+2026-10-08 ~ 2026-10-12
+```
+
+```text
+예산 소진시까지
+```
+
+따라서 단순 `start_date / end_date` 구조만으로는 부족하다.
+
+
+# 6. Current Architecture Decision
+
+현재 우선 Architecture:
+
+```text
+Official Data
+→ Raw Snapshot
+→ Normalization
+→ Eligibility Constraint Extraction
+→ Structured Eligibility
+→ Deterministic Matching
+→ Deterministic Calculation
+→ Evidence Validation
+→ LLM Explanation
+→ Final Result + Source
+```
+
+핵심 원칙:
+
+- LLM이 최종 지원 가능 여부를 임의로 판단하지 않는다.
+- 금융계산은 Backend Code에서 수행한다.
+- Eligibility Extraction 결과는 원문 Evidence와 함께 관리한다.
+- 데이터에 없는 사실을 생성하지 않는다.
+- AI 장애 시 Structured Result는 유지한다.
+
+
+# 7. Implemented Code
+
+현재:
+
+NONE
+
+아직 실제 Backend Application Scaffold를 생성하지 않았다.
+
+현재 단계에서 다음은 구현 완료 상태가 아니다.
+
+- Backend API
+- Database
+- Collector
+- Normalizer
+- Retrieval
+- Eligibility Extraction
+- Matching Engine
+- Calculation Engine
+- Evidence Validator
+- LLM Integration
+- Deployment
+
+
+# 8. Backend API Status
+
+현재 모든 API Endpoint는 Draft 또는 미구현 상태이다.
+
+후보:
+
+```text
+GET /health
+POST /programs/match
+GET /programs/{program_id}
+POST /risk/calculate
+POST /ai/explain
+```
+
+Status:
+
+NOT IMPLEMENTED
+
+Frontend와 API Contract를 합의한 이후 최종 확정한다.
+
+
+# 9. Database Status
+
+Status:
+
+NOT DECIDED
+
+현재 확정되지 않은 항목:
+
+- Database Product
+- ORM
+- Table Schema
+- Migration Tool
+
+DB를 결정하기 전에 다음을 먼저 진행한다.
+
+- Program Schema 검증
+- Eligibility Schema 검증
+- User Profile Schema 확정
+
+
+# 10. AI / LLM Status
+
+Status:
+
+NOT DECIDED
+
+아직 확정하지 않은 사항:
+
+- LLM Provider
+- Model
+- Embedding Model
+- Vector DB
+- Agent Framework
+
+현재 AI 역할 후보:
+
+1. 사용자 자연어 이해
+2. 비정형 Eligibility 조건 추출
+3. 검증된 결과 설명
+
+현재 AI가 담당하지 않는 영역:
+
+- 금융계산
+- 날짜비교
+- 최종 Eligibility Matching
+- 존재 여부 판단
+- 지원금액 생성
+
+
+# 11. Retrieval Status
+
+Status:
+
+DESIGN ONLY
+
+현재 Baseline:
+
+```text
+Structured Filter
++
+Keyword Search
+```
+
+Vector Retrieval:
+
+NOT DECIDED
+
+Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우에만 추가한다.
+
+
+# 12. Eligibility Status
+
+Status:
+
+DESIGN / DATA ANALYSIS
+
+현재 Draft Schema 후보:
+
+- region
+- age_min
+- age_max
+- business_status
+- business_age_min
+- business_age_max
+- business_location
+- industry
+- gender_condition
+- required_certificate
+- required_education
+- required_recommendation
+- additional_condition_text
+- evidence_text
+
+아직 Schema Freeze 전이다.
+
+
+# 13. Calculation Engine Status
+
+Status:
+
+NOT DEFINED
+
+현재 기획상 계산 후보:
+
+- 월 현금흐름
+- Cash Burn
+- Runway
+- 대출 상환
+- 사업 악화 시 재무상태
+- 폐업 가정 시 잔존채무
+
+아직 다음이 확정되지 않았다.
+
+- 최종 입력값
+- 계산식
+- 상환방식
+- 거치기간 처리
+- 폐업 Scenario
+- 경계값
+
+금융 검증 이후 구현한다.
+
+
+# 14. Policy Loan Data Status
+
+Status:
+
+INVESTIGATING
+
+아직 공식 Source를 확정하지 않았다.
+
+검증 필요:
+
+- 소상공인시장진흥공단
+- 중소벤처기업진흥공단
+- 공공데이터포털
+- 기타 공식 정책자금 Source
+
+확보 필요 항목:
+
+- 금리
+- 한도
+- 상환기간
+- 거치기간
+- 자격조건
+- 기준일
+
+
+# 15. K-Startup Status
+
+Status:
+
+OFFICIAL_FOUND / NOT VERIFIED
+
+다음 검증 예정:
+
+- 실제 API 호출
+- Response Schema
+- 기업마당 동일 공고 Mapping
+- 지원지역 정형화 수준
+- 업력 정형화 수준
+- 연령 정형화 수준
+
+기업마당 대비 실질적인 정보 개선이 있는 경우에만 MVP Source로 추가한다.
+
+
+# 16. Frontend Integration Status
+
+Status:
+
+NOT STARTED
+
+현재 Backend API Contract가 Freeze되지 않았다.
+
+Frontend 담당과 추후 확정할 내용:
+
+- Profile Input Schema
+- Program Result Schema
+- Match Status
+- Evidence 표시 방식
+- Risk Input Schema
+- Risk Result Schema
+- AI Explanation Response
+- Error Response
+
+
+# 17. Infrastructure Status
+
+Status:
+
+NOT DECIDED
+
+현재 미확정:
+
+- Backend Hosting
+- Database Hosting
+- LLM Provider
+- Cloud
+- Domain
+- CI/CD
+
+최종 MVP 요구:
+
+- Public URL
+- HTTPS
+- Health Check
+- Environment Variables
+- Restart Recovery
+- Logging
+- Timeout
+- Error Handling
+
+
+# 18. Security Status
+
+## Required
+
+- [x] API Key를 Source Code에 넣지 않는 원칙 정의
+- [x] Secret을 환경변수로 관리하는 원칙 정의
+- [ ] `.gitignore` 검증
+- [ ] `.env.example` 생성
+- [ ] 운영 Secret 관리 방식 확정
+- [ ] 금융정보 Logging 정책 구현
+
+## Security Issue
+
+기업마당 API Key가 개발 과정 중 화면/채팅 등에 노출된 경우 기존 Key를 재발급 또는 교체하고 노출된 Key를 사용하지 않는다.
+
+새 Key는 Git 또는 문서에 기록하지 않는다.
+
+
+# 19. Tests
+
+현재 자동화 Test:
+
+NONE
+
+추후 최소 테스트 대상:
+
+- Data Normalization
+- Eligibility Parsing
+- Deterministic Matching
+- Date Parsing
+- Calculation Engine
+- Unsupported Detection
+- API Validation
+- Prompt Injection
+
+
+# 20. Evaluation
+
+Status:
+
+NOT STARTED
+
+향후 Evaluation Set 후보:
+
+- 정상 지원사업 질문
+- 지역 불일치
+- 연령 불일치
+- 업력 불일치
+- 사용자 정보 부족
+- 공고정보 부족
+- 예산 소진시까지
+- 복합 자격조건
+- 지원금액 추출
+- 계산 질문
+- 데이터에 없는 지원사업 질문
+
+
+# 21. Current Risks
+
+## R1. Eligibility Extraction Accuracy
+
+기업마당 세부조건이 자연어에 존재하므로 조건 추출 정확도가 핵심 Risk이다.
+
+Mitigation:
+
+- 원문 Evidence 보존
+- Human Labeled Evaluation Set
+- Deterministic Matching
+- UNKNOWN / NEEDS_REVIEW 지원
+
+
+## R2. Scope Overload
+
+기획에 많은 기능이 존재한다.
+
+Mitigation:
+
+MVP MUST 우선.
+
+핵심:
+
+```text
+실제 지원사업 데이터
+→ Matching
+→ Evidence
+→ Risk Calculation
+→ AI Explanation
+```
+
+
+## R3. Policy Loan Data
+
+정책자금의 정형 공식 데이터를 확보하지 못할 가능성이 있다.
+
+Mitigation:
+
+공식 Source 검증 후 확보 범위에 맞춰 MVP 기능을 제한한다.
+
+
+## R4. LLM Hallucination
+
+LLM이 없는 조건이나 금액을 생성할 위험.
+
+Mitigation:
+
+- Evidence First
+- Structured Output
+- Validation
+- Unsupported Handling
+- Deterministic Calculation
+
+
+## R5. Deployment Time
+
+문서와 AI 기능에 시간을 과도하게 사용하면 Public MVP 배포 일정이 부족할 수 있다.
+
+Mitigation:
+
+Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
+
+
+# 22. Current Blockers
+
+현재 즉시 개발을 막는 핵심 미확정 사항:
+
+1. Eligibility Schema 최종 형태
+2. Policy Loan 공식 Source
+3. Risk Calculation Formula
+4. User Profile 최소 입력
+5. Backend Technology Stack
+6. Frontend API Contract
+
+
+# 23. Immediate Next Tasks
+
+우선순위 순서:
+
+## P0
+
+1. 기업마당 Sample 확대
+2. Eligibility 조건 유형 분석
+3. Eligibility Schema 검증
+
+## P1
+
+4. 정책자금 공식 Source 검증
+5. K-Startup 실측 검증
+6. 리스크 계산식 확정
+
+## P2
+
+7. User Profile Schema 확정
+8. Architecture Freeze
+9. Backend Technology Stack 결정
+10. API Contract 결정
+
+## P3
+
+11. Backend Scaffold
+12. Collector
+13. Normalizer
+14. Database
+15. Matching Engine
+16. Calculation Engine
+17. LLM Integration
+
+
+# 24. Current Completion Snapshot
+
+Documentation:
+
+```text
+AGENTS                       DONE
+GROUND_TRUTH                 DONE
+MVP_SCOPE                    DONE
+DATA_SOURCES                 DONE
+ARCHITECTURE                 DONE
+DEV_STATUS                   DONE
+```
+
+Data:
+
+```text
+Bizinfo Official Source      DONE
+Bizinfo API Access           DONE
+Bizinfo API Call             DONE
+Bizinfo 20 Sample            DONE
+Bizinfo Raw JSON             DONE
+Bizinfo Schema Check         DONE
+Bizinfo Large Sample         TODO
+K-Startup API                TODO
+Policy Loan Data             TODO
+```
+
+Backend:
+
+```text
+Framework                    TODO
+Database                     TODO
+API                          TODO
+Retrieval                    TODO
+Eligibility Extraction       TODO
+Matching                     TODO
+Calculation                  TODO
+LLM                          TODO
+Tests                        TODO
+```
+
+Infra:
+
+```text
+Hosting                      TODO
+Database Hosting             TODO
+Public URL                   TODO
+Health Check                 TODO
+CI/CD                        TODO
+```
+
+
+# 25. Development Rule
+
+다음 작업부터는 주요 구현 또는 검증이 끝날 때마다 이 파일을 업데이트한다.
+
+최소 기록:
+
+- 무엇을 구현했는가
+- 무엇을 실제 검증했는가
+- 어떤 테스트를 통과했는가
+- 어떤 기술을 확정했는가
+- 현재 Blocker는 무엇인가
+- 다음 작업은 무엇인가
+
+코드 상태와 이 문서의 상태가 다르면 코드와 실제 테스트 결과를 기준으로 이 문서를 수정한다.
