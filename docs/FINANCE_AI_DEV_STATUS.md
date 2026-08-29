@@ -310,13 +310,14 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 - Condition별 Evidence / Match Result
 - `GET /programs/{program_id}`
 - `POST /programs/match`
+- `POST /risk/calculate`
+- 원리금균등 상환·현금흐름·Runway·잔존채무 Calculation
 - 핵심 자동화 테스트
 
 아직 구현 완료 상태가 아님:
 
 - Raw 공고 Eligibility Extraction / 실제 20건 구조화
 - Database / ORM
-- Risk Calculation Engine
 - LLM Integration
 - Frontend Integration
 - Public Deployment
@@ -334,6 +335,7 @@ Status:
 GET /health
 POST /programs/match
 GET /programs/{program_id}
+POST /risk/calculate
 ```
 
 실제 Uvicorn 로컬 프로세스에서 다음을 확인했다.
@@ -342,6 +344,7 @@ GET /programs/{program_id}
 - 실제 `program_id` 상세: HTTP 200
 - 없는 `program_id`: HTTP 404
 - `/programs/match`: HTTP 200
+- `/risk/calculate`: 정상 입력 HTTP 200, 잘못된 입력 HTTP 422
 
 Raw Snapshot에는 아직 구조화된 Eligibility가 없으므로 실제 공고 Match API는 이를 임의 추출하지 않고 `UNKNOWN`을 반환한다.
 
@@ -349,7 +352,6 @@ Raw Snapshot에는 아직 구조화된 Eligibility가 없으므로 실제 공고
 
 ```text
 POST /chat
-POST /risk/calculate
 POST /income-stability/calculate
 POST /sales/analyze   # 실제 매출장표 분석 구현 시에만
 ```
@@ -453,29 +455,35 @@ Raw 20건에서 실제 Eligibility를 자동 추출하거나 구조화하는 Ext
 
 # 13. Calculation Engine Status
 
-Status:
+Status: `MVP CONTRACT FROZEN / IMPLEMENTED / VERIFIED LOCALLY`
 
-NOT DEFINED
+입력:
 
-현재 기획상 계산 후보:
+- `initial_cost`
+- `own_capital`
+- `monthly_revenue`
+- `monthly_expense`
+- `loan_amount`
+- `annual_interest_rate` — 연 %, 사용자 직접 입력
+- `loan_term_months`
 
-- 월 현금흐름
-- Cash Burn
-- Runway
-- 대출 상환
-- 사업 악화 시 재무상태
-- 폐업 가정 시 잔존채무
+구현 계산:
 
-아직 다음이 확정되지 않았다.
+- 초기 가용 현금
+- 원리금균등 월 상환액
+- 월 현금흐름 / 현금소진액
+- 단순 현금소진 Runway
+- 유한 Runway 시점 예상 잔존채무
 
-- 최종 입력값
-- 계산식
-- 상환방식
-- 거치기간 처리
-- 폐업 Scenario
-- 경계값
+내부 계산은 Decimal로 수행하고 최종 응답에서만 `ROUND_HALF_UP` 소수 둘째 자리 반올림을 적용한다. `loan_amount=0`이면 기간이 0이어도 상환액과 잔존채무는 0이다. 월 현금흐름이 0 이상이면 Runway와 해당 시점 잔존채무는 `null`이다.
 
-금융 검증 이후 구현한다.
+MVP 제외:
+
+- 다른 상환방식
+- 거치기간 / 변동금리
+- 세금 / 수수료 / 연체 / 중도상환
+- 매출 변동 / 추가 차입
+- 신용평가 / 대출 승인 예측
 
 
 # 14. Policy Loan Data Status
@@ -601,7 +609,7 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 2026-08-29 실제 실행 결과:
 
 ```text
-27 passed, 0 failed
+47 passed, 0 failed
 ```
 
 검증 범위:
@@ -623,10 +631,15 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 - 잘못된 숫자 범위 422
 - 잘못된 `jsonArray` 구조 거부
 - Snapshot 누락 시 Health 유지 및 Program API 503
+- Risk 필수 Case 1~12
+- 0% / 일반 금리 원리금균등 상환액
+- 음수·기간 오류 422
+- 유한/0/null Runway 경계
+- 0% / 양의 금리 잔존채무
+- 최종 Response 2자리 반올림
 
 미검증 / 미구현 테스트:
 
-- Risk Calculation
 - LLM / Prompt Injection
 - Frontend Integration
 - Public Deployment
@@ -736,11 +749,10 @@ Mitigation:
 
 현재 Core 진행 Blocker / 미완료 결정:
 
-1. 핵심 Risk Calculation Formula
-2. 실제 Raw Program용 Eligibility Extraction / 구조화 데이터
-3. `/chat` LLM Provider와 API Contract
-4. Backend Hosting / Public 배포 방식
-5. Frontend Integration Contract 최종 연결
+1. 실제 Raw Program용 Eligibility Extraction / 구조화 데이터
+2. `/chat` LLM Provider와 API Contract
+3. Backend Hosting / Public 배포 방식
+4. Frontend Integration Contract 최종 연결
 
 [RECOMMENDATION] Core 구현의 필수 선행조건에서 제외할 항목:
 
@@ -761,32 +773,31 @@ Mitigation:
 
 ## P0 — 다음 작업
 
-1. Risk Calculation 최소 입력·공식·경계값 Freeze
-2. `/risk/calculate` deterministic 구현과 테스트
-3. 실제 Raw Program Eligibility 구조화 baseline 결정
+1. 실제 Raw Program Eligibility 구조화 baseline 결정
+2. `/chat` LLM Provider / API Contract Freeze
+3. Structured Result 기반 `/chat` + LLM 장애 Fallback 구현
 
 ## P1 — Core User Flow
 
 4. 실제 Program Eligibility 데이터 연결
 5. Structured / Keyword Program 목록 Retrieval
-6. `/chat` AI Integration + Fallback
-7. 지원사업 상세 ↔ `program_id` Chat Context
+6. 지원사업 상세 ↔ `program_id` Chat Context
 
 ## P2 — 유형별 기능 / 배포
 
-8. 프리랜서 소득 안정성 간이 계산
-9. 매출장표 실제 분석 구현 가능 여부 판단
-10. 실제 분석 미완성 시 `DEMO SAMPLE` Fallback 적용
-11. Frontend Integration
-12. Public Deployment
+7. 프리랜서 소득 안정성 간이 계산
+8. 매출장표 실제 분석 구현 가능 여부 판단
+9. 실제 분석 미완성 시 `DEMO SAMPLE` Fallback 적용
+10. Frontend Integration
+11. Public Deployment
 
 ## P3 — QA
 
-13. 정상/오류/경계값 테스트
-14. LLM/API Failure Fallback
-15. 모바일 웹 주요 화면 점검
-16. Public URL 재접속 / Restart Recovery
-17. 기능 구현 상태 기준 공식 기능명세서 작성 준비
+12. 정상/오류/경계값 테스트
+13. LLM/API Failure Fallback
+14. 모바일 웹 주요 화면 점검
+15. Public URL 재접속 / Restart Recovery
+16. 기능 구현 상태 기준 공식 기능명세서 작성 준비
 
 K-Startup, 상권, Vector Retrieval 등은 Core 완료 후 시간이 남을 때만 검토한다.
 
@@ -832,9 +843,9 @@ Program Normalization        VERIFIED
 Eligibility Model v0.1       IMPLEMENTED
 Eligibility Extraction       TODO
 Matching                     VERIFIED
-Calculation                  TODO
+Calculation — Risk MVP       VERIFIED
 LLM                          TODO
-Tests                        27 PASSED
+Tests                        47 PASSED
 ```
 
 Infra:

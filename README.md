@@ -23,7 +23,11 @@
 * `GET /health`
 * `GET /programs/{program_id}`
 * `POST /programs/match`
+* `POST /risk/calculate`
 * OpenAPI: `GET /docs`
+
+Risk Calculator는 사용자가 입력한 금리와 원리금균등상환 가정만 사용하는 단순
+시뮬레이션입니다. 신용평가나 대출 승인 예측이 아닙니다.
 
 ## 테스트
 

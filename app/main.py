@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
 from app.api.programs import router as programs_router
+from app.api.risk import router as risk_router
 from app.config import get_bizinfo_snapshot_path
 from app.data.bizinfo_loader import BizinfoDataError
 from app.data.program_repository import ProgramRepository
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
 
     application.include_router(health_router)
     application.include_router(programs_router)
+    application.include_router(risk_router)
     return application
 
 

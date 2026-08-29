@@ -467,25 +467,44 @@ MVP에서는 복잡한 동적 폼 생성까지 구현하지 않아도 된다. �
 
 LLM에게 계산을 맡기지 않는다.
 
-현재 후보 입력:
+2026-08-29 MVP 구현 Contract 입력:
 
 * initial_cost
 * own_capital
 * monthly_revenue
 * monthly_expense
 * loan_amount
-* interest_rate
-* loan_term
+* annual_interest_rate — 연 이자율 %, 사용자 직접 입력
+* loan_term_months — 개월
 
-현재 후보 출력:
+MVP에서 지원하는 상환방식은 원리금균등상환 1종이다. 거치기간, 변동금리, 세금, 수수료, 매출 변동, 추가 차입은 반영하지 않는다. 정책자금 금리를 자동으로 삽입하지 않는다.
 
+출력:
+
+* available_cash
+* monthly_loan_payment
 * monthly_cash_flow
-* cash_burn
-* runway
-* debt_balance
-* estimated_remaining_debt
+* monthly_cash_burn
+* runway_months
+* remaining_debt_at_runway
 
-최종 계산식은 별도 검증 후 확정한다.
+핵심 계산식:
+
+```text
+available_cash = own_capital + loan_amount - initial_cost
+monthly_rate = annual_interest_rate / 100 / 12
+monthly_cash_flow = monthly_revenue - monthly_expense - monthly_loan_payment
+monthly_cash_burn = max(-monthly_cash_flow, 0)
+
+available_cash <= 0                 → runway_months = 0
+available_cash > 0 AND
+monthly_cash_flow < 0               → runway_months = available_cash / monthly_cash_burn
+monthly_cash_flow >= 0              → runway_months = null
+```
+
+월 원리금 상환액은 대출 0원이면 0, 0% 금리이면 `loan_amount / loan_term_months`, 그 외에는 `P × r × (1+r)^n / ((1+r)^n - 1)`이다. 유한 Runway 시점의 잔존채무는 `P × (1+r)^k - A × ((1+r)^k - 1) / r`이며, `k=floor(runway_months)`를 대출기간 범위로 제한한다. 0% 금리는 `max(P - A × k, 0)`을 사용하고 Runway가 `null`이면 잔존채무도 `null`이다.
+
+내부 계산은 Decimal로 수행하고 최종 금액과 Runway만 `ROUND_HALF_UP`으로 소수 둘째 자리까지 반올림한 JSON number로 반환한다.
 
 # 13. Calculation Requirements
 
@@ -507,7 +526,7 @@ Calculation Engine은 다음 원칙을 따른다.
 = 월 현금흐름
 ```
 
-실제 최종 계산식은 팀 결정 및 금융 검증 이후 적용한다.
+이 계산은 사용자 입력 기반 단순 시뮬레이션이며 신용평가, 대출 승인 예측 또는 실제 사업 성과 보장이 아니다.
 
 # 14. Evidence Validation
 
