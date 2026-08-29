@@ -32,6 +32,11 @@ G4 — Core Implementation IN PROGRESS
 Structured Result 기반 `/chat` 설명 흐름을 구현하고 로컬 실행·API·자동화
 테스트를 검증했다.
 
+2026-08-29 수동 Bizinfo Snapshot Refresh를 구현하고 실제 창업 분야 호출 1회로
+69건(`totCnt=69`, 중복 0)을 수집했다. Loader·Normalization·service-ready 게시와
+Runtime Snapshot 선택까지 검증했으며, 사용자 API 요청 경로는 외부 Bizinfo API를
+호출하지 않는다.
+
 # 2. Repository
 
 Backend Repository:
@@ -861,10 +866,9 @@ Mitigation:
 현재 Core 진행 Blocker / 미완료 결정:
 
 1. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
-2. 서비스용 최신 Snapshot Refresh와 검증 절차
-3. Backend Hosting / Public 배포 방식
-4. Frontend Integration Contract 최종 연결
-5. 실제 Profile을 외부 LLM에 전달할 때의 개인정보 최소화·동의 정책
+2. Backend Hosting / Public 배포 방식과 Git 비추적 초기 Snapshot 제공 방식
+3. Frontend Integration Contract 최종 연결
+4. 실제 Profile을 외부 LLM에 전달할 때의 개인정보 최소화·동의 정책
 
 [RECOMMENDATION] Core 구현의 필수 선행조건에서 제외할 항목:
 
@@ -885,9 +889,9 @@ Mitigation:
 
 ## P0 — 다음 작업
 
-1. 기존 기업마당 Collector 출력의 service-ready Snapshot Refresh 경로 구현
-2. Refresh 시 Raw 구조·중복 ID·Normalization 검증과 기존 Snapshot 보존 정책 확정
-3. 현재 20건 Extractor의 Human Review 및 미지원 Pattern 우선순위 결정
+1. Frontend 목록 검색 ↔ `GET /programs` 실제 연결
+2. Frontend 지원사업 상세 ↔ 구현된 `program_id` Chat Context 실제 연결
+3. 최신 69건 Snapshot의 `NEEDS_REVIEW` / `UNSUPPORTED` 대표 공고 Human Review
 
 ## P1 — Core User Flow
 
@@ -951,16 +955,17 @@ Framework                    IMPLEMENTED
 Database                     TODO
 API                          VERIFIED LOCALLY
 Snapshot Retrieval           VERIFIED
-Structured/Keyword Retrieval VERIFIED (20 RAW)
-Program Normalization        VERIFIED
+Snapshot Manual Refresh      LIVE VERIFIED (69 RAW)
+Structured/Keyword Retrieval VERIFIED (69 RAW)
+Program Normalization        VERIFIED (69 RAW)
 Eligibility Model v0.1       IMPLEMENTED
-Eligibility Extraction       BASELINE VERIFIED (20 RAW)
+Eligibility Extraction       BASELINE RUN (69 RAW)
 Matching                     VERIFIED
 Calculation — Risk MVP       VERIFIED
 LLM Explanation              LIVE SMOKE VERIFIED
 Chat / OpenAI Explanation    VERIFIED LOCALLY
 Chat Template Fallback       VERIFIED LOCALLY
-Tests                        96 PASSED
+Tests                        115 PASSED
 ```
 
 Infra:

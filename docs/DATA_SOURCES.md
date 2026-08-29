@@ -174,6 +174,57 @@ Raw Data:
 
 Raw 데이터는 가공 전 원본 Snapshot으로 유지한다.
 
+## Service Snapshot Refresh Verification — 2026-08-29
+
+[EXPERIMENT / IMPLEMENTED]
+
+MVP 서비스가 사용할 최신 기업마당 Snapshot을 운영자가 안전하게 갱신하는 수동
+Collector를 구현하고 실제 호출 1회로 검증했다.
+
+### Request and Result
+
+* Method: GET
+* Endpoint: `https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do`
+* `dataType`: json
+* `searchLclasId`: 06 (창업)
+* `searchCnt`: 100
+* HTTP Status: 200
+* 실제 Raw Item: 69건
+* 고유 `pblancId`: 69건
+* 중복 `pblancId`: 0건
+* Response `totCnt`: 69
+* Collector 종료 코드: 0
+* 수집 시각: `2026-08-29T09:40:30.949819+00:00`
+
+Raw Evidence:
+
+`data/raw/bizinfo/collected/bizinfo_startup_20260829T094030949819Z.json`
+
+서버 응답 bytes는 재직렬화하지 않고 timestamp 파일에 그대로 저장했다. 기존 20건
+baseline은 변경하지 않았다. 인증키와 인증키가 포함된 전체 URL은 로그·metadata에
+기록하지 않았고, runtime 수집 산출물은 `data/raw/` ignore 규칙 적용을 확인했다.
+현재 baseline 역시 `data/raw/` 규칙으로 Git에서 추적되지 않는 로컬 Evidence이므로,
+새 배포 환경의 초기 Snapshot 제공 방식은 별도로 확정해야 한다.
+
+### Service-ready Validation
+
+* 최상위 object / non-empty `jsonArray`: 통과
+* `pblancId` / `pblancNm` 필수값: 통과
+* 중복 ID 검사: 통과
+* 기존 Loader: 69건 로딩 성공
+* Program Normalization: 69건 성공
+* service-ready manifest 게시: 성공
+* 기본 Snapshot resolver가 신규 Snapshot 선택: 확인
+
+동일 Snapshot에 현재 Eligibility Extractor를 적용한 상태 분포는
+`SUPPORTED` 22건, `NEEDS_REVIEW` 46건, `UNSUPPORTED` 1건이다. 이는 수집 또는
+Normalization 실패가 아니라 현재 보수적 Extractor의 지원 범위를 나타낸다.
+`청년` keyword retrieval은 9건을 반환하고 모두 `BIZINFO` Source임을 확인했다.
+
+이 검증은 2026-08-29 시점 창업 분야의 단일 Snapshot에 한정된다. 기업마당 전체
+분야 Coverage, 실시간 동기화, 자동 갱신, Eligibility 완전성을 의미하지 않는다.
+응답 69건은 `searchCnt=100`보다 작지만 `totCnt=69`이므로 정상 결과로 처리했다.
+
 ## Confirmed JSON Structure
 
 실제 응답은 다음 구조로 확인되었다.

@@ -689,6 +689,43 @@ Frontend
 
 이렇게 분리하면 외부 API 장애와 Latency 영향을 줄일 수 있다.
 
+## 18.1 Manual Bizinfo Snapshot Refresh Baseline
+
+[IMPLEMENTED / VERIFIED — 2026-08-29]
+
+현재 MVP는 Scheduler나 Public Refresh API를 두지 않는다. 운영자가
+`python -m scripts.refresh_bizinfo`를 실행할 때만 기업마당 창업 분야(`06`)를
+`searchCnt=100`으로 한 번 요청한다. 사용자 요청을 처리하는 API 경로에서는
+기업마당 외부 API를 호출하지 않는다.
+
+```text
+Manual CLI
+→ Bizinfo GET (timeout 적용, API Key는 환경변수)
+→ Response bytes 메모리 검증
+→ Timestamped Raw Snapshot 원본 bytes 저장
+→ 기존 Program Loader / Normalization 검증
+→ Metadata 저장
+→ service_ready.json 원자적 게시 (마지막 단계)
+```
+
+검증 기준은 최상위 JSON object, non-empty `jsonArray`, 각 item의 non-empty
+`pblancId`·`pblancNm`, 중복 `pblancId` 부재, Loader와 Normalization 성공이다.
+응답 건수가 100보다 작은 것은 오류가 아니다. JSON/구조/중복/저장/정규화 검증이
+실패하면 신규 Snapshot을 게시하지 않고 직전 service-ready manifest를 유지한다.
+
+서비스 Snapshot 선택 우선순위:
+
+```text
+FINBRIDGE_BIZINFO_SNAPSHOT 명시 경로
+→ latest verified service-ready collected snapshot
+→ local verified 20-row baseline
+```
+
+`ELIGIBILITY_EXTRACTION_STATUS`는 service-ready 게시의 차단 기준이 아니다. 이는
+원본 공고를 안전하게 로드·정규화할 수 있는지와 Extractor가 모든 조건을 완전히
+구조화했는지가 서로 다른 품질 축이기 때문이다. 개별 Program의 `NEEDS_REVIEW` 또는
+`UNSUPPORTED` 상태는 이후 Matching에서 그대로 보수적으로 처리한다.
+
 # 19. Raw Data
 
 Raw 데이터는 원본 형태로 보존한다.
@@ -699,12 +736,17 @@ Raw 데이터는 원본 형태로 보존한다.
 data/
 └─ raw/
    └─ bizinfo/
-      └─ bizinfo_startup_sample.json
+      ├─ bizinfo_startup_sample.json
+      └─ collected/
+         ├─ bizinfo_startup_<UTC timestamp>.json
+         ├─ bizinfo_startup_<UTC timestamp>.metadata.json
+         └─ service_ready.json
 ```
 
-원본을 수정하여 덮어쓰지 않는다.
-
-실제 운영 수집 방식은 추후 결정한다.
+기존 baseline과 과거 수집 원본을 수정하거나 덮어쓰지 않는다. 수집 파일은
+timestamp로 구분하고 Git에서 제외한다. 현재 `data/raw/` 전체가 ignore되어 baseline도
+Git에서 추적되지 않으므로 새 배포 환경에는 검증된 Snapshot을 별도로 제공해야 한다.
+Metadata와 로그에는 인증키 또는 인증키가 포함된 전체 요청 URL을 저장하지 않는다.
 
 # 20. Normalized Data
 
@@ -931,7 +973,8 @@ LLM 장애가 전체 서비스를 중단시키지 않아야 한다.
 Local Service DB / Snapshot
 ```
 
-사용자 요청은 Local DB를 우선 조회하는 구조를 검토한다.
+현재 사용자 요청은 검증된 Local Snapshot만 조회한다. 수동 Refresh가 실패해도 직전
+service-ready Snapshot 또는 추적된 baseline으로 계속 동작한다.
 
 데이터 최신 기준일을 화면에 표시할 수 있어야 한다.
 

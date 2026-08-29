@@ -9,12 +9,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BIZINFO_SNAPSHOT = (
     PROJECT_ROOT / "data" / "raw" / "bizinfo" / "bizinfo_startup_sample.json"
 )
+BIZINFO_COLLECTED_DIR = PROJECT_ROOT / "data" / "raw" / "bizinfo" / "collected"
 
 
 def get_bizinfo_snapshot_path() -> Path:
     configured_path = os.getenv("FINBRIDGE_BIZINFO_SNAPSHOT")
     if configured_path:
         return Path(configured_path).expanduser().resolve()
+    from app.data.snapshot_manager import resolve_service_ready_snapshot
+
+    collected_snapshot = resolve_service_ready_snapshot(BIZINFO_COLLECTED_DIR)
+    if collected_snapshot is not None:
+        return collected_snapshot
     return DEFAULT_BIZINFO_SNAPSHOT
 
 
@@ -26,7 +32,7 @@ class OpenAISettings:
 
 
 def get_openai_settings() -> OpenAISettings:
-    timeout_text = _setting("OPENAI_TIMEOUT_SECONDS") or "10"
+    timeout_text = get_setting("OPENAI_TIMEOUT_SECONDS") or "10"
     try:
         timeout_seconds = float(timeout_text)
     except ValueError:
@@ -34,13 +40,13 @@ def get_openai_settings() -> OpenAISettings:
     if timeout_seconds <= 0:
         timeout_seconds = 10.0
     return OpenAISettings(
-        api_key=_setting("OPENAI_API_KEY"),
-        model=_setting("OPENAI_MODEL") or "gpt-5.6-luna",
+        api_key=get_setting("OPENAI_API_KEY"),
+        model=get_setting("OPENAI_MODEL") or "gpt-5.6-luna",
         timeout_seconds=timeout_seconds,
     )
 
 
-def _setting(name: str) -> str | None:
+def get_setting(name: str) -> str | None:
     environment_value = os.getenv(name)
     if environment_value is not None:
         normalized = environment_value.strip()
