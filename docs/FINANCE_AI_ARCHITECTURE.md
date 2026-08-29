@@ -718,7 +718,7 @@ Manual CLI
 ```text
 FINBRIDGE_BIZINFO_SNAPSHOT 명시 경로
 → latest verified service-ready collected snapshot
-→ local verified 20-row baseline
+→ tracked verified 69-row bootstrap snapshot
 ```
 
 `ELIGIBILITY_EXTRACTION_STATUS`는 service-ready 게시의 차단 기준이 아니다. 이는
@@ -734,9 +734,10 @@ Raw 데이터는 원본 형태로 보존한다.
 
 ```text
 data/
+├─ bootstrap/
+│  └─ bizinfo_startup_bootstrap.json
 └─ raw/
    └─ bizinfo/
-      ├─ bizinfo_startup_sample.json
       └─ collected/
          ├─ bizinfo_startup_<UTC timestamp>.json
          ├─ bizinfo_startup_<UTC timestamp>.metadata.json
@@ -744,9 +745,9 @@ data/
 ```
 
 기존 baseline과 과거 수집 원본을 수정하거나 덮어쓰지 않는다. 수집 파일은
-timestamp로 구분하고 Git에서 제외한다. 현재 `data/raw/` 전체가 ignore되어 baseline도
-Git에서 추적되지 않으므로 새 배포 환경에는 검증된 Snapshot을 별도로 제공해야 한다.
-Metadata와 로그에는 인증키 또는 인증키가 포함된 전체 요청 URL을 저장하지 않는다.
+timestamp로 구분하고 Git에서 제외한다. 검증된 Bootstrap artifact 한 개만
+`data/bootstrap/`에서 Git 추적하여 새 배포 환경의 초기 기동에 사용한다. Metadata와
+로그에는 인증키 또는 인증키가 포함된 전체 요청 URL을 저장하지 않는다.
 
 # 20. Normalized Data
 

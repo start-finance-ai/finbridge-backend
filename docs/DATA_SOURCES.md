@@ -204,7 +204,7 @@ Raw Evidence:
 baseline은 변경하지 않았다. 인증키와 인증키가 포함된 전체 URL은 로그·metadata에
 기록하지 않았고, runtime 수집 산출물은 `data/raw/` ignore 규칙 적용을 확인했다.
 현재 baseline 역시 `data/raw/` 규칙으로 Git에서 추적되지 않는 로컬 Evidence이므로,
-새 배포 환경의 초기 Snapshot 제공 방식은 별도로 확정해야 한다.
+새 배포 환경을 위해 아래의 별도 Bootstrap artifact를 사용한다.
 
 ### Service-ready Validation
 
@@ -224,6 +224,31 @@ Normalization 실패가 아니라 현재 보수적 Extractor의 지원 범위를
 이 검증은 2026-08-29 시점 창업 분야의 단일 Snapshot에 한정된다. 기업마당 전체
 분야 Coverage, 실시간 동기화, 자동 갱신, Eligibility 완전성을 의미하지 않는다.
 응답 69건은 `searchCnt=100`보다 작지만 `totCnt=69`이므로 정상 결과로 처리했다.
+
+### Tracked Bootstrap Snapshot — 2026-08-29
+
+[IMPLEMENTED / VERIFIED]
+
+위 service-ready Raw Snapshot과 byte-identical한 배포용 artifact를 다음 경로로
+분리했다.
+
+`data/bootstrap/bizinfo_startup_bootstrap.json`
+
+* Record: 69건
+* 고유 `pblancId`: 69건
+* Duplicate: 0건
+* SHA-256: `c82b3bf76c78a7daec5ac6a0bb1f16a824a5daf5b98f85a150899d1463b25bd4`
+* Loader / Normalization: 69건 성공
+* API Key·인증 Parameter·Authorization 값: 없음
+* 사용자 입력 또는 민감 금융정보: 없음
+
+공식 공고 원문 필드인 `refrncNm`에는 공개된 사업 문의 전화번호·이메일이 포함될 수
+있다. 이는 사용자 Profile이나 비공개 개인정보가 아니라 기업마당이 공개한 공고
+연락처이며, Bootstrap은 원본 Evidence 보존을 위해 이를 변경하지 않는다.
+
+Runtime timestamp Snapshot·metadata·manifest는 계속 Git에서 제외한다. Bootstrap은
+자동 최신화나 전체 Coverage를 의미하지 않으며, 운영자가 수동 Refresh를 검증한 뒤
+별도 변경으로 갱신해야 한다.
 
 ## Confirmed JSON Structure
 

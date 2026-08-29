@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from app.ai.provider import AIExplanation, AIProviderUnavailableError
-from app.config import DEFAULT_BIZINFO_SNAPSHOT
 from app.data.program_repository import ProgramRepository
 from app.main import create_app
 from app.retrieval.program_retrieval import (
@@ -13,7 +12,7 @@ from app.retrieval.program_retrieval import (
 from app.schemas.matching import BusinessStatus, UserProfile
 from app.schemas.retrieval import ProgramSearchRequest
 from app.services.program_service import ProgramService
-from tests.conftest import ASGITestClient
+from tests.conftest import ASGITestClient, TEST_BIZINFO_SNAPSHOT
 
 
 WATER_PROGRAM_ID = "PBLN_000000000125666"
@@ -39,7 +38,7 @@ class UnavailableProvider:
 
 @pytest.fixture
 def program_service() -> ProgramService:
-    return ProgramService(ProgramRepository(DEFAULT_BIZINFO_SNAPSHOT))
+    return ProgramService(ProgramRepository(TEST_BIZINFO_SNAPSHOT))
 
 
 @pytest.fixture

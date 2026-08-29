@@ -6,9 +6,11 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_BIZINFO_SNAPSHOT = (
-    PROJECT_ROOT / "data" / "raw" / "bizinfo" / "bizinfo_startup_sample.json"
+BIZINFO_BOOTSTRAP_SNAPSHOT = (
+    PROJECT_ROOT / "data" / "bootstrap" / "bizinfo_startup_bootstrap.json"
 )
+# Backward-compatible name for callers that use the default local snapshot constant.
+DEFAULT_BIZINFO_SNAPSHOT = BIZINFO_BOOTSTRAP_SNAPSHOT
 BIZINFO_COLLECTED_DIR = PROJECT_ROOT / "data" / "raw" / "bizinfo" / "collected"
 
 
@@ -21,7 +23,7 @@ def get_bizinfo_snapshot_path() -> Path:
     collected_snapshot = resolve_service_ready_snapshot(BIZINFO_COLLECTED_DIR)
     if collected_snapshot is not None:
         return collected_snapshot
-    return DEFAULT_BIZINFO_SNAPSHOT
+    return BIZINFO_BOOTSTRAP_SNAPSHOT
 
 
 @dataclass(frozen=True)

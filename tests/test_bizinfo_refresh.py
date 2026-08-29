@@ -355,7 +355,7 @@ def test_service_ready_snapshot_is_second_priority(
     assert config.get_bizinfo_snapshot_path() == collected.resolve()
 
 
-def test_baseline_is_used_when_manifest_is_missing_or_invalid(
+def test_bootstrap_is_used_when_manifest_is_missing_or_invalid(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -365,12 +365,12 @@ def test_baseline_is_used_when_manifest_is_missing_or_invalid(
         collected_dir / SERVICE_READY_MANIFEST_NAME,
         {"snapshot_filename": "../outside.json"},
     )
-    baseline = tmp_path / "baseline.json"
+    bootstrap = tmp_path / "bootstrap.json"
     monkeypatch.setattr(config, "BIZINFO_COLLECTED_DIR", collected_dir)
-    monkeypatch.setattr(config, "DEFAULT_BIZINFO_SNAPSHOT", baseline)
+    monkeypatch.setattr(config, "BIZINFO_BOOTSTRAP_SNAPSHOT", bootstrap)
     monkeypatch.delenv("FINBRIDGE_BIZINFO_SNAPSHOT", raising=False)
 
-    assert config.get_bizinfo_snapshot_path() == baseline
+    assert config.get_bizinfo_snapshot_path() == bootstrap
 
 
 def test_http_error_never_exposes_secret_url(tmp_path: Path) -> None:

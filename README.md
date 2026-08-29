@@ -25,7 +25,8 @@ Snapshot 선택 순서는 다음과 같습니다.
 
 1. `FINBRIDGE_BIZINFO_SNAPSHOT`으로 명시한 파일
 2. 검증을 모두 통과해 `service_ready.json`에 게시된 최신 수집 Snapshot
-3. 로컬의 검증된 20건 baseline인 `data/raw/bizinfo/bizinfo_startup_sample.json`
+3. Git으로 배포되는 검증된 69건 Bootstrap인
+   `data/bootstrap/bizinfo_startup_bootstrap.json`
 
 런타임 API는 기업마당 외부 API를 호출하지 않습니다. 최신 Snapshot은 운영자가
 다음 명령으로만 수동 갱신합니다.
@@ -42,8 +43,9 @@ Loader·Normalization 검증을 모두 통과한 경우에만 service-ready mani
 교체합니다. 실패 시 기존 service-ready Snapshot과 baseline을 보존합니다. 수집 파일과
 manifest는 `data/raw/` ignore 규칙으로 Git에 포함되지 않습니다.
 
-현재 20건 baseline도 `data/raw/` 아래의 로컬 파일이므로 Git에서 추적되지 않습니다.
-새 배포 환경에는 검증된 service-ready Snapshot 또는 baseline을 별도로 제공해야 합니다.
+Bootstrap은 2026-08-29 실제 수집·검증한 69건 Snapshot의 byte-identical 배포
+artifact이며 runtime 수집 경로와 분리해 Git 추적할 수 있습니다. 따라서 fresh
+deployment도 외부 API Refresh 없이 Program API를 기동할 수 있습니다.
 
 Chat 환경변수는 `.env.example`을 참고해 서버 환경에 설정합니다. Secret은
 `.env`에만 두고 Git에 포함하지 않습니다.

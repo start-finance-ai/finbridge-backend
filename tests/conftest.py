@@ -8,8 +8,12 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from app.config import DEFAULT_BIZINFO_SNAPSHOT
 from app.main import create_app
+
+
+TEST_BIZINFO_SNAPSHOT = (
+    Path(__file__).resolve().parent / "fixtures" / "bizinfo_startup_sample_20.json"
+)
 
 
 class ASGITestClient:
@@ -35,7 +39,7 @@ class ASGITestClient:
 
 @pytest.fixture
 def snapshot_path() -> Path:
-    return DEFAULT_BIZINFO_SNAPSHOT
+    return TEST_BIZINFO_SNAPSHOT
 
 
 @pytest.fixture

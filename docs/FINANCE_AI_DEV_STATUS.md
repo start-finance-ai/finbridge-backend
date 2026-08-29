@@ -37,6 +37,11 @@ Structured Result 기반 `/chat` 설명 흐름을 구현하고 로컬 실행·AP
 Runtime Snapshot 선택까지 검증했으며, 사용자 API 요청 경로는 외부 Bizinfo API를
 호출하지 않는다.
 
+동일한 69건 Snapshot을 `data/bootstrap/bizinfo_startup_bootstrap.json`으로 분리해
+Git 추적 가능한 초기 배포 artifact로 확정했다. Runtime Snapshot이 없는 fresh
+deployment에서도 Bootstrap 선택, Loader·Eligibility·Retrieval과 `/health`,
+`/programs`, `/chat` 동작을 검증했다.
+
 # 2. Repository
 
 Backend Repository:
@@ -866,7 +871,7 @@ Mitigation:
 현재 Core 진행 Blocker / 미완료 결정:
 
 1. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
-2. Backend Hosting / Public 배포 방식과 Git 비추적 초기 Snapshot 제공 방식
+2. Backend Hosting / Public 배포 방식
 3. Frontend Integration Contract 최종 연결
 4. 실제 Profile을 외부 LLM에 전달할 때의 개인정보 최소화·동의 정책
 
@@ -942,6 +947,7 @@ Bizinfo 20 Sample            DONE
 Bizinfo Raw JSON             DONE
 Bizinfo Schema Check         DONE
 Bizinfo Large Sample 273     DONE
+Bizinfo Bootstrap 69         VERIFIED
 Eligibility Review Pack 48   DONE
 Baseline Evaluation          DONE
 K-Startup API                TODO
@@ -956,6 +962,7 @@ Database                     TODO
 API                          VERIFIED LOCALLY
 Snapshot Retrieval           VERIFIED
 Snapshot Manual Refresh      LIVE VERIFIED (69 RAW)
+Tracked Bootstrap Fallback   VERIFIED (69 RAW)
 Structured/Keyword Retrieval VERIFIED (69 RAW)
 Program Normalization        VERIFIED (69 RAW)
 Eligibility Model v0.1       IMPLEMENTED
@@ -965,7 +972,7 @@ Calculation — Risk MVP       VERIFIED
 LLM Explanation              LIVE SMOKE VERIFIED
 Chat / OpenAI Explanation    VERIFIED LOCALLY
 Chat Template Fallback       VERIFIED LOCALLY
-Tests                        115 PASSED
+Tests                        122 PASSED
 ```
 
 Infra:
