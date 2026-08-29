@@ -14,8 +14,7 @@ Last Updated: 2026-08-29
 Current Phase:
 
 ```text
-G3 — Architecture / UI Contract Freeze
-→ G4 Core Implementation 즉시 진입 준비
+G4 — Core Implementation IN PROGRESS
 ```
 
 [TEAM DECISION — 2026-08-29]
@@ -29,7 +28,7 @@ G3 — Architecture / UI Contract Freeze
 
 [RECOMMENDATION] 2026-08-28 문서에서는 Architecture Freeze 전에 다수의 추가 데이터 검증을 선행하려 했으나, 현재 일정에서는 **검증된 DS-001을 기준으로 최소 Schema와 API Contract를 빠르게 Freeze하고 Core Backend 구현으로 전환**하는 편이 안전하다.
 
-아직 Backend Application Code는 구현되지 않았다.
+검증된 기업마당 Snapshot을 사용하는 FinBridge Core Backend baseline을 구현하고 로컬 실행·API·자동화 테스트를 검증했다.
 
 # 2. Repository
 
@@ -43,6 +42,15 @@ start-finance-ai/backend
 
 ```text
 backend/
+├─ app/
+│  ├─ api/
+│  ├─ data/
+│  ├─ eligibility/
+│  ├─ schemas/
+│  ├─ services/
+│  └─ main.py
+├─ tests/
+├─ requirements.txt
 ├─ .gitignore
 ├─ AGENTS.md
 ├─ README.md
@@ -89,7 +97,7 @@ backend/
 
 현재 문서는 개발 과정에서 계속 갱신한다.
 
-특히 다음은 아직 Freeze 상태가 아니다.
+특히 다음은 아직 최종 Freeze 상태가 아니다.
 
 - Architecture
 - Program Schema
@@ -97,7 +105,7 @@ backend/
 - User Profile Schema
 - Risk Calculation Formula
 - API Contract
-- Technology Stack
+- Backend Hosting / 운영 Dependency 정책
 
 
 # 3.1 2026-08-29 Team Decision Update
@@ -276,66 +284,85 @@ Official Data
 - 데이터에 없는 사실을 생성하지 않는다.
 - AI 장애 시 Structured Result는 유지한다.
 
+2026-08-29 Core Backend baseline 기술 결정:
+
+- Framework: FastAPI `0.141.1`
+- Validation / Model: Pydantic v2 `2.13.4`
+- Runtime: Python `.venv` + Uvicorn `0.52.1`
+- Test: pytest `9.1.1` + httpx ASGI transport
+- Data Access: 기업마당 Raw JSON Snapshot을 읽는 lazy in-memory Repository
+- Database / ORM: 이번 baseline에는 도입하지 않음
+
 
 # 7. Implemented Code
 
-현재:
+Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 
-NONE
+구현 완료:
 
-아직 실제 Backend Application Scaffold를 생성하지 않았다.
+- FastAPI Application Scaffold
+- `GET /health`
+- 기업마당 Raw Snapshot Loader와 예외처리
+- Program Repository / ID 조회
+- Program 최소 Normalization과 신청기간 Parser
+- `docs/ELIGIBILITY_SCHEMA.md` v0.1 기반 Pydantic Model
+- DNF `common_conditions + eligibility_groups + global_exclusions` Matcher
+- Condition별 Evidence / Match Result
+- `GET /programs/{program_id}`
+- `POST /programs/match`
+- 핵심 자동화 테스트
 
-현재 단계에서 다음은 구현 완료 상태가 아니다.
+아직 구현 완료 상태가 아님:
 
-- Backend API
-- Database
-- Collector
-- Normalizer
-- Retrieval
-- Eligibility Extraction
-- Matching Engine
-- Calculation Engine
-- Evidence Validator
+- Raw 공고 Eligibility Extraction / 실제 20건 구조화
+- Database / ORM
+- Risk Calculation Engine
 - LLM Integration
-- Deployment
+- Frontend Integration
+- Public Deployment
 
 
 # 8. Backend API Status
 
 Status:
 
-`CONTRACT DRAFTED / NOT IMPLEMENTED`
+`CORE ENDPOINTS IMPLEMENTED / VERIFIED LOCALLY`
 
-기존 후보:
+구현·검증 완료:
 
 ```text
 GET /health
 POST /programs/match
 GET /programs/{program_id}
-POST /risk/calculate
-POST /ai/explain
 ```
 
-2026-08-29 UI/Backend Contract 반영 추가 후보:
+실제 Uvicorn 로컬 프로세스에서 다음을 확인했다.
+
+- `/health`: HTTP 200
+- 실제 `program_id` 상세: HTTP 200
+- 없는 `program_id`: HTTP 404
+- `/programs/match`: HTTP 200
+
+Raw Snapshot에는 아직 구조화된 Eligibility가 없으므로 실제 공고 Match API는 이를 임의 추출하지 않고 `UNKNOWN`을 반환한다.
+
+아직 미구현인 Endpoint 후보:
 
 ```text
 POST /chat
+POST /risk/calculate
 POST /income-stability/calculate
 POST /sales/analyze   # 실제 매출장표 분석 구현 시에만
 ```
 
 `/chat`은 일반모드/집중모드, 후속 대화, 선택적 `program_id` context를 처리하는 Orchestration 후보이다.
 
-Endpoint 이름과 Schema는 아직 Freeze되지 않았다.
-
-Status:
-NOT IMPLEMENTED
-
 # 9. Database Status
 
-Status:
+Status: `LOCAL SNAPSHOT BASELINE IMPLEMENTED / SERVICE DB NOT DECIDED`
 
-NOT DECIDED
+현재 Core API는 DB 없이 검증된
+`data/raw/bizinfo/bizinfo_startup_sample.json`을 Repository 경계에서 읽는다.
+비즈니스 로직은 Raw Loader와 분리되어 향후 Service DB 또는 다른 Snapshot으로 교체할 수 있다.
 
 현재 확정되지 않은 항목:
 
@@ -344,11 +371,7 @@ NOT DECIDED
 - Table Schema
 - Migration Tool
 
-DB를 결정하기 전에 다음을 먼저 진행한다.
-
-- Program Schema 검증
-- Eligibility Schema 검증
-- User Profile Schema 확정
+DB 부재가 현재 Snapshot 기반 Core API 실행을 막지는 않는다.
 
 
 # 10. AI / LLM Status
@@ -382,17 +405,26 @@ NOT DECIDED
 
 # 11. Retrieval Status
 
-Status:
+Status: `SNAPSHOT PROGRAM RETRIEVAL IMPLEMENTED`
 
-DESIGN ONLY
-
-현재 Baseline:
+현재 구현 Baseline:
 
 ```text
-Structured Filter
-+
-Keyword Search
+Raw Snapshot
+→ Program Normalization
+→ in-memory ID Repository
 ```
+
+구현됨:
+
+- Snapshot 20건 로딩
+- `pblancId` 기준 상세 조회
+- 누락·잘못된 JSON·잘못된 구조 예외처리
+
+미구현:
+
+- 목록 검색 / Structured Filter
+- Keyword Search
 
 Vector Retrieval:
 
@@ -403,28 +435,20 @@ Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우
 
 # 12. Eligibility Status
 
-Status:
+Status: `SCHEMA v0.1 MODEL + MATCHER IMPLEMENTED / EXTRACTION NOT IMPLEMENTED`
 
-DESIGN / DATA ANALYSIS
+구현됨:
 
-현재 Draft Schema 후보:
+- Program / Condition extraction status 분리
+- 12개 condition type, subject, operator, unit, polarity, role Enum
+- `raw_value` + normalized operands + Evidence
+- `common_conditions` AND
+- `eligibility_groups` 내부 AND / Group 사이 OR
+- `global_exclusions` 우선
+- `EXCLUDE` positive predicate 단일 평가
+- 조건 부재 / Evidence 부족 / 사용자 입력 부족 분리
 
-- region
-- age_min
-- age_max
-- business_status
-- business_age_min
-- business_age_max
-- business_location
-- industry
-- gender_condition
-- required_certificate
-- required_education
-- required_recommendation
-- additional_condition_text
-- evidence_text
-
-아직 Schema Freeze 전이다.
+Raw 20건에서 실제 Eligibility를 자동 추출하거나 구조화하는 Extractor는 아직 없다. 따라서 실제 Raw Program은 Program extraction `UNKNOWN`이며 안전한 `MATCH`를 만들지 않는다.
 
 
 # 13. Calculation Engine Status
@@ -530,9 +554,7 @@ Status:
 
 # 17. Infrastructure Status
 
-Status:
-
-NOT DECIDED
+Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 
 현재 미확정:
 
@@ -547,7 +569,7 @@ NOT DECIDED
 
 - Public URL
 - HTTPS
-- Health Check
+- Health Check — local verified
 - Environment Variables
 - Restart Recovery
 - Logging
@@ -563,7 +585,7 @@ NOT DECIDED
 - [x] Secret을 환경변수로 관리하는 원칙 정의
 - [x] `.gitignore` 생성 및 기본 제외 규칙 검증
 - [x] `.venv/` Git 제외 설정
-- [ ] `.env.example` 생성
+- [x] `.env.example` 생성 및 Secret 미포함 확인
 - [ ] 운영 Secret 관리 방식 확정
 - [ ] 금융정보 Logging 정책 구현
 
@@ -576,41 +598,51 @@ NOT DECIDED
 
 # 19. Tests
 
-현재 자동화 Test:
+2026-08-29 실제 실행 결과:
 
-NONE
+```text
+27 passed, 0 failed
+```
 
-추후 최소 테스트 대상:
+검증 범위:
 
-- Data Normalization
-- Eligibility Parsing
-- Deterministic Matching
-- Date Parsing
-- Calculation Engine
-- Unsupported Detection
-- API Validation
-- Prompt Injection
+- `/health`
+- 실제 20건 Snapshot 로딩과 Program Normalization
+- 고정 날짜 / 예산 소진 / Unknown 신청기간
+- YEAR / MONTH 업력 비교
+- Raw Snapshot 무변경
+- Matching Case 1~6
+- OR Group 충족 / 전체 실패
+- global exclusion 우선 및 이중 부정 방지
+- Evidence 없는 `SUPPORTED` 거부
+- 잘못된 Operator operand 거부
+- Unsupported Program의 안전한 `NEEDS_REVIEW`
+- 정상 Program 상세 / 404
+- 실제 Raw Program Match의 안전한 `UNKNOWN`
+- 잘못된 Enum 422
+- 잘못된 숫자 범위 422
+- 잘못된 `jsonArray` 구조 거부
+- Snapshot 누락 시 Health 유지 및 Program API 503
+
+미검증 / 미구현 테스트:
+
+- Risk Calculation
+- LLM / Prompt Injection
+- Frontend Integration
+- Public Deployment
 
 
 # 20. Evaluation
 
-Status:
+Status: `ELIGIBILITY REVIEW-PACK BASELINE COMPLETE / BACKEND MATCHER CASES VERIFIED`
 
-NOT STARTED
+- AI-assisted Human-reviewed Review Pack 48건 평가 완료
+- TP 27 / FP 9 / TN 9 / FN 3
+- `candidate_precision_proxy`: 75.00%
+- `review_pack_negative_control_false_negative_rate`: 25.00%
+- Backend Matcher 경계 Case 1~6 자동화 테스트 완료
 
-향후 Evaluation Set 후보:
-
-- 정상 지원사업 질문
-- 지역 불일치
-- 연령 불일치
-- 업력 불일치
-- 사용자 정보 부족
-- 공고정보 부족
-- 예산 소진시까지
-- 복합 자격조건
-- 지원금액 추출
-- 계산 질문
-- 데이터에 없는 지원사업 질문
+Review-Pack 지표는 전체 273건의 정식 precision / recall / accuracy가 아니다. 실제 Raw 공고 Eligibility Extraction과 End-to-End Matching 평가는 아직 미완료다.
 
 
 # 21. Current Risks
@@ -702,15 +734,13 @@ Mitigation:
 
 # 22. Current Blockers
 
-Core Implementation 시작 전에 빠르게 Freeze해야 하는 항목:
+현재 Core 진행 Blocker / 미완료 결정:
 
-1. MVP용 최소 Eligibility Schema
-2. Focus Mode 최소 Profile Input
-3. 핵심 Risk Calculation Formula
-4. Backend Technology Stack
-5. Database / Local Snapshot 저장 방식
-6. `/chat` 중심 API Contract
-7. Backend Hosting / Public 배포 방식
+1. 핵심 Risk Calculation Formula
+2. 실제 Raw Program용 Eligibility Extraction / 구조화 데이터
+3. `/chat` LLM Provider와 API Contract
+4. Backend Hosting / Public 배포 방식
+5. Frontend Integration Contract 최종 연결
 
 [RECOMMENDATION] Core 구현의 필수 선행조건에서 제외할 항목:
 
@@ -729,42 +759,34 @@ Core Implementation 시작 전에 빠르게 Freeze해야 하는 항목:
 
 2026-09-03~04 내부 완료 목표 기준 우선순위.
 
-## P0 — 오늘 바로 Freeze / Scaffold
+## P0 — 다음 작업
 
-1. `FINANCE_AI_GROUND_TRUTH.md` 08-29 반영
-2. `FINANCE_AI_MVP_SCOPE.md` 08-29 반영
-3. `FINANCE_AI_ARCHITECTURE.md` 08-29 반영
-4. UI/Backend Handoff를 API Contract 기준으로 사용
-5. 최소 Profile / Eligibility Schema 확정
-6. Risk Calculation 최소 공식 확정
-7. Backend Framework / DB / Hosting 결정
-8. Backend Scaffold + `/health`
+1. Risk Calculation 최소 입력·공식·경계값 Freeze
+2. `/risk/calculate` deterministic 구현과 테스트
+3. 실제 Raw Program Eligibility 구조화 baseline 결정
 
 ## P1 — Core User Flow
 
-9. 기업마당 Snapshot/DB 적재 및 Normalization
-10. Program Retrieval
-11. Deterministic Matching
-12. Evidence Response
-13. Risk Calculation
-14. `/chat` AI Integration + Fallback
-15. 지원사업 상세 ↔ `program_id` Chat Context
+4. 실제 Program Eligibility 데이터 연결
+5. Structured / Keyword Program 목록 Retrieval
+6. `/chat` AI Integration + Fallback
+7. 지원사업 상세 ↔ `program_id` Chat Context
 
 ## P2 — 유형별 기능 / 배포
 
-16. 프리랜서 소득 안정성 간이 계산
-17. 매출장표 실제 분석 구현 가능 여부 판단
-18. 실제 분석 미완성 시 `DEMO SAMPLE` Fallback 적용
-19. Frontend Integration
-20. Public Deployment
+8. 프리랜서 소득 안정성 간이 계산
+9. 매출장표 실제 분석 구현 가능 여부 판단
+10. 실제 분석 미완성 시 `DEMO SAMPLE` Fallback 적용
+11. Frontend Integration
+12. Public Deployment
 
 ## P3 — QA
 
-21. 정상/오류/경계값 테스트
-22. LLM/API Failure Fallback
-23. 모바일 웹 주요 화면 점검
-24. Public URL 재접속 / Restart Recovery
-25. 기능 구현 상태 기준 공식 기능명세서 작성 준비
+13. 정상/오류/경계값 테스트
+14. LLM/API Failure Fallback
+15. 모바일 웹 주요 화면 점검
+16. Public URL 재접속 / Restart Recovery
+17. 기능 구현 상태 기준 공식 기능명세서 작성 준비
 
 K-Startup, 상권, Vector Retrieval 등은 Core 완료 후 시간이 남을 때만 검토한다.
 
@@ -792,7 +814,9 @@ Bizinfo API Call             DONE
 Bizinfo 20 Sample            DONE
 Bizinfo Raw JSON             DONE
 Bizinfo Schema Check         DONE
-Bizinfo Large Sample         TODO
+Bizinfo Large Sample 273     DONE
+Eligibility Review Pack 48   DONE
+Baseline Evaluation          DONE
 K-Startup API                TODO
 Policy Loan Data             TODO
 ```
@@ -800,15 +824,17 @@ Policy Loan Data             TODO
 Backend:
 
 ```text
-Framework                    TODO
+Framework                    IMPLEMENTED
 Database                     TODO
-API                          TODO
-Retrieval                    TODO
+API                          VERIFIED LOCALLY
+Snapshot Retrieval           VERIFIED
+Program Normalization        VERIFIED
+Eligibility Model v0.1       IMPLEMENTED
 Eligibility Extraction       TODO
-Matching                     TODO
+Matching                     VERIFIED
 Calculation                  TODO
 LLM                          TODO
-Tests                        TODO
+Tests                        27 PASSED
 ```
 
 Infra:
@@ -817,7 +843,7 @@ Infra:
 Hosting                      TODO
 Database Hosting             TODO
 Public URL                   TODO
-Health Check                 TODO
+Health Check                 VERIFIED LOCALLY
 CI/CD                        TODO
 ```
 
