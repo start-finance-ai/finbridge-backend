@@ -21,6 +21,100 @@ Keyword Retrieval을 먼저 수행하고 Top-5만 Chat context로 전달합니�
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
+## Railway 배포
+
+현재 Backend 배포 기준은 Railway Hobby + Railpack이며 DB를 사용하지 않습니다.
+Config as Code 파일은 사용하지 않고 Railway Dashboard에서 다음 값을 직접 설정합니다.
+`.python-version`은 Python `3.14.3`을 고정합니다.
+
+```text
+Builder: Railpack
+Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+Health Check: /health
+Public Networking: Generate Domain
+Database: 없음
+Volume: 없음
+Docker: 없음
+```
+
+Railway Dashboard 설정:
+
+1. `New Project` → `Deploy from GitHub repo`
+2. `start-finance-ai/backend` 선택
+3. Root Directory가 필요하면 Backend 저장소 루트로 지정
+4. Builder를 `Railpack`으로 설정
+5. Start Command를 `uvicorn app.main:app --host 0.0.0.0 --port $PORT`로 설정
+6. Health Check Path를 `/health`로 설정
+7. Variables 설정
+8. Public Networking에서 `Generate Domain`
+9. 아래 Public smoke 명령 실행
+
+Railpack은 `.python-version`의 버전을 읽지만 Python `3.14.3`의 실제 Railway build는
+Public deployment에서 최종 검증합니다. `MISE_PYTHON_COMPILE=1`은 미리 설정하지 않고,
+실제 build 실패가 확인될 때만 대응합니다.
+
+### Railway Variables
+
+Railway가 자동 제공하므로 직접 만들지 않는 값:
+
+```text
+PORT
+```
+
+Frontend 연결 시 필수 설정:
+
+```text
+FINBRIDGE_CORS_ORIGINS=https://<final-vercel-domain>
+```
+
+권장 Secret 및 설정:
+
+```text
+OPENAI_API_KEY=<Railway Secret>
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_TIMEOUT_SECONDS=10
+```
+
+선택 설정:
+
+```text
+BIZINFO_API_KEY=<Collector를 Railway에서 수동 실행할 때만 필요한 Secret>
+BIZINFO_TIMEOUT_SECONDS=30
+FINBRIDGE_BIZINFO_SNAPSHOT=<별도 Snapshot 경로가 있을 때만 사용>
+```
+
+`OPENAI_API_KEY`가 없으면 `/chat`은 Structured Result를 유지하고
+`TEMPLATE_FALLBACK`을 반환합니다. `BIZINFO_API_KEY`와 runtime collected 파일도
+서버 기동 필수값이 아니며, 기본 서비스 데이터는 Git에 포함된 69건 Bootstrap입니다.
+Railway의 로컬 filesystem은 영속 저장소로 가정하지 않습니다.
+
+### Public Domain Smoke — PowerShell
+
+```powershell
+$apiBase = "https://<railway-domain>"
+
+Invoke-RestMethod "$apiBase/health"
+Invoke-RestMethod "$apiBase/programs?query=$([uri]::EscapeDataString('창업'))"
+
+$chatBody = @{ message = "창업 지원사업을 찾아줘" } | ConvertTo-Json
+Invoke-RestMethod "$apiBase/chat" -Method Post -ContentType "application/json" -Body $chatBody
+
+$riskBody = @{
+  initial_cost = 30000000
+  own_capital = 20000000
+  monthly_revenue = 6000000
+  monthly_expense = 5000000
+  loan_amount = 20000000
+  annual_interest_rate = 4.5
+  loan_term_months = 60
+} | ConvertTo-Json
+Invoke-RestMethod "$apiBase/risk/calculate" -Method Post -ContentType "application/json" -Body $riskBody
+```
+
+Backend Domain 생성 후 Frontend에는
+`VITE_API_BASE_URL=https://<railway-domain>` 형태로 연결하고, 최종 Vercel Origin을
+Railway의 `FINBRIDGE_CORS_ORIGINS`에 설정합니다.
+
 Snapshot 선택 순서는 다음과 같습니다.
 
 1. `FINBRIDGE_BIZINFO_SNAPSHOT`으로 명시한 파일

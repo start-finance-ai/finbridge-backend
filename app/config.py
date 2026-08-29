@@ -12,6 +12,7 @@ BIZINFO_BOOTSTRAP_SNAPSHOT = (
 # Backward-compatible name for callers that use the default local snapshot constant.
 DEFAULT_BIZINFO_SNAPSHOT = BIZINFO_BOOTSTRAP_SNAPSHOT
 BIZINFO_COLLECTED_DIR = PROJECT_ROOT / "data" / "raw" / "bizinfo" / "collected"
+DEFAULT_CORS_ORIGINS = ("http://localhost:8443",)
 
 
 def get_bizinfo_snapshot_path() -> Path:
@@ -46,6 +47,23 @@ def get_openai_settings() -> OpenAISettings:
         model=get_setting("OPENAI_MODEL") or "gpt-5.6-luna",
         timeout_seconds=timeout_seconds,
     )
+
+
+def get_cors_origins() -> tuple[str, ...]:
+    configured = get_setting("FINBRIDGE_CORS_ORIGINS")
+    if configured is None:
+        return DEFAULT_CORS_ORIGINS
+
+    origins = tuple(
+        dict.fromkeys(
+            origin.strip().rstrip("/")
+            for origin in configured.split(",")
+            if origin.strip()
+        )
+    )
+    if "*" in origins:
+        raise ValueError("FINBRIDGE_CORS_ORIGINS must not contain wildcard origins")
+    return origins or DEFAULT_CORS_ORIGINS
 
 
 def get_setting(name: str) -> str | None:

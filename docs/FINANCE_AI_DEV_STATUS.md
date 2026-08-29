@@ -54,7 +54,7 @@ Database                         NOT USED BY DESIGN
 현재 전체 Backend test 상태:
 
 ```text
-122 passed
+128 passed
 ```
 
 # 3. Backend Technology
@@ -464,11 +464,39 @@ Frontend Public URL:
 NOT CREATED / NOT VERIFIED
 ```
 
+## Railway Deployment Preparation
+
+Status:
+
+```text
+VERIFIED LOCALLY / PUBLIC NOT VERIFIED
+```
+
+구현·검증:
+
+- Railway Dashboard-based deployment contract 확정
+- Builder = Railpack
+- `.python-version` = `3.14.3`
+- Start Command = `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health Check = `/health`
+- Public Networking = Generate Domain
+- Database / Volume / Docker 없음
+- `FINBRIDGE_CORS_ORIGINS` exact-origin parser와 CORS middleware
+- default local origin `http://localhost:8443`
+- wildcard origin 거부
+- Secret·`.env`·runtime Snapshot 없는 clean venv/import 성공
+- 실제 Uvicorn TCP 기동 후 `/health`, `/programs`, `/chat` template fallback,
+  `/risk/calculate`, allowed/disallowed CORS 검증
+
+Config as Code 파일과 `.railway/railway.ts`는 사용하지 않는다. 현재 상태는 Railway
+Dashboard-based deployment preparation `VERIFIED LOCALLY`, Public Deployment
+`NOT VERIFIED`이다. Python `3.14.3` Railway 실제 build는 Public deployment에서 최종
+검증하며, `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
+
 현재 배포 P0:
 
-- Bootstrap stage/commit/push 최종 확인
-- Railway production readiness
-- CORS environment configuration
+- Railway GitHub service 생성 및 Domain 발급
+- 최종 Vercel URL 확정 후 CORS Variable 설정
 - `/health` public verification
 - OpenAI Secret configuration
 - Bootstrap production load

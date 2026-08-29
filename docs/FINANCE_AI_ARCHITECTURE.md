@@ -498,14 +498,26 @@ GET /health
 Railway 배포 시 다음을 우선한다.
 
 - GitHub `start-finance-ai/backend` 연결
-- `/health` health check
+- Config as Code 파일 없이 Railway Dashboard에서 직접 설정
+- Builder: Railpack
+- Python: `3.14.3` (`.python-version`)
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/health`
+- Public Networking: Generate Domain
 - application sleep 비활성화 권장
-- production CORS origin을 Vercel URL로 설정
+- `FINBRIDGE_CORS_ORIGINS`에 production Vercel URL을 exact origin으로 설정
 - `OPENAI_API_KEY`를 Secret으로 설정
 - `BIZINFO_API_KEY`는 Collector 운영이 필요할 때만 Secret으로 설정 가능
 - Runtime DB / Volume은 현재 추가하지 않음
+- Docker 및 `.railway/railway.ts`는 현재 도입하지 않음
 
 Public URL을 실제 생성·외부 검증하기 전에는 배포 완료로 기록하지 않는다.
+Python `3.14.3` Railway 실제 build는 Public deployment에서 최종 검증하며,
+사전 `MISE_PYTHON_COMPILE=1` 설정은 사용하지 않는다.
+
+기본 CORS는 `http://localhost:8443`만 허용한다. 배포 환경변수는 comma-separated
+exact origin 목록이며 whitespace·빈 항목을 제거하고 wildcard `*`는 거부한다.
+현재 Auth Cookie를 사용하지 않으므로 credentialed CORS는 활성화하지 않는다.
 
 # 15. Frontend Architecture / Current Boundary
 
