@@ -2,480 +2,355 @@
 
 Last Updated: 2026-08-29
 
-이 문서는 2026 금융 AI Challenge 프로젝트의 현재 확정된 기획 사실을 관리한다.
+이 문서는 2026 금융 AI Challenge 프로젝트의 현재 확정된 기획·구현 기준을 관리한다.
 
-개발·기획·문서 작성 과정에서 내용이 충돌하면
-`AGENTS.md`에 정의된 Source of Truth 우선순위를 따른다.
+충돌 시 `AGENTS.md`의 Source of Truth 우선순위를 따른다.
+구현 여부는 반드시 `FINANCE_AI_DEV_STATUS.md`와 실제 코드·테스트 결과를 우선한다.
 
-이 문서에는 확정된 내용만 기록한다.
+# 1. Project / Service
 
-아직 확정되지 않은 아이디어나 기술 선택은
-`TEAM DECISION` 또는 별도 문서에서 관리하며
-Ground Truth처럼 사용하지 않는다.
-
-
-# 1. Project Goal
-
-예비창업자·소상공인·프리랜서가
-
-- 자신에게 맞는 정부지원사업을 찾고
-- 자신의 재무 상황을 이해하고
-- 자금 조달 이후의 위험까지 사전에 확인할 수 있도록
-
-AI를 활용해 금융 의사결정을 지원하는 웹서비스를 구현한다.
-
-단순한 금융정보 검색이나 지원사업 목록 제공이 아니라,
-
-사용자 상황 진단
-→ 맞춤형 지원사업 탐색
-→ 재무·리스크 확인
-→ AI 상담
-
-이 하나의 서비스 안에서 연결되는 것이 핵심이다.
-
-
-# 2. Team / Service Name
-
-[TEAM DECISION — 2026-08-29]
+[TEAM DECISION]
 
 - 팀명: `start`
 - 공식 서비스명: `FinBridge`
+- 핵심 사용자: 예비창업자 / 소상공인 / 프리랜서
+- 서비스 채널: 모바일 웹 중심 Public Web Service
+- 내부 완료 목표: Backend 구축·배포, 디자인, QA를 `2026-09-03~04`까지
+- 팀 공유 제출 일정: `2026-09-07 오전`
+- 정확한 공식 마감시각은 제출 전 최신 공식 공지를 다시 확인한다.
 
-앞으로 Figma, Frontend, Backend/API, README, 기획서, 기능명세서, 배포 화면 등 프로젝트 산출물에서 서비스명은 `FinBridge`로 통일한다.
+`핀브릿지`, `서비스명 미정` 등 과거 명칭은 최신 산출물에서 사용하지 않는다.
 
-`핀브릿지`, 서비스명 미정 등 과거 표현은 최신 문서에서 사용하지 않는다.
+# 2. Core Service Definition
 
-# 3. Target Users
+FinBridge는 단순 지원사업 검색·추천 서비스가 아니다.
 
-현재 핵심 사용자 유형은 다음 3개다.
-
-## 3.1 예비창업자
-
-주요 문제:
-
-- 창업 자금과 절차가 복잡하다.
-- 자신이 받을 수 있는 지원사업을 찾기 어렵다.
-- 실제 창업 이후 발생할 수 있는 재무 위험을 사전에 판단하기 어렵다.
-
-
-## 3.2 소상공인
-
-주요 문제:
-
-- 긴급 경영자금 또는 정책지원이 필요할 수 있다.
-- 여러 기관에 흩어진 지원사업을 직접 탐색해야 한다.
-- 매출과 현금흐름을 바탕으로 현재 재무상태를 이해하기 어렵다.
-
-
-## 3.3 프리랜서
-
-주요 문제:
-
-- 4대보험 가입 여부 등 일반 근로자와 다른 조건 때문에
-  자신이 지원 대상인지 판단하기 어렵다.
-- 일정하지 않은 소득으로 인해 금융 상황을 설명하기 어렵다.
-
-
-# 4. User Channel
-
-현재 서비스 채널은 모바일 웹을 중심으로 한다.
-
-사용자가 복잡한 금융·지원 정보를 여러 기관에서 직접 찾는 대신
-하나의 웹서비스에서 자신의 상황을 입력하고 결과를 확인할 수 있도록 한다.
-
-
-# 5. Problem Definition
-
-현재 해결하려는 핵심 문제는 다음과 같다.
-
-## 5.1 지원정보의 분산
-
-정부지원금, 정책자금 대출, 지자체 혜택 등이
-
-- 정부24
-- 중소벤처기업부 관련 기관
-- 지자체
-- 금융기관
-
-등 여러 채널에 분산되어 있다.
-
-
-## 5.2 복잡한 자격조건
-
-지원사업 공고는 행정·금융 용어와 여러 조건으로 구성되어 있어
-사용자가 자신의 신청 가능 여부를 직접 판단하기 어렵다.
-
-
-## 5.3 사용자 상황을 반영하지 못하는 정보 탐색
-
-사용자마다
-
-- 유형
-- 지역
-- 업종
-- 자본금
-- 재무상황
-
-이 다르지만 일반적인 정보 검색은 이러한 조건을 충분히 반영하기 어렵다.
-
-
-## 5.4 신용점수만으로 설명하기 어려운 재무상황
-
-소상공인·프리랜서 등은
-
-- 매출 흐름
-- 거래 데이터
-- 소득 안정성
-- 현금흐름
-
-등이 실제 상환 역량을 이해하는 데 중요할 수 있다.
-
-현재 서비스는 이러한 데이터를 분석해
-사용자의 금융상황을 이해하기 쉬운 형태로 제공하는 것을 목표로 한다.
-
-
-## 5.5 창업 실패 위험의 사전 확인 부족
-
-대출 또는 자금 지원을 받는 것만으로
-창업의 재무 위험이 사라지는 것은 아니다.
-
-사용자가 창업 이후
-
-- 매출 악화
-- 사업 지속 곤란
-- 폐업
-
-등의 상황에 직면했을 때
-얼마의 채무가 남을 수 있는지를 사전에 확인할 수 있도록 하는 것이
-현재 기획의 핵심 요소 중 하나다.
-
-
-# 6. Core Service Concept
-
-현재 서비스의 핵심 흐름은 다음과 같다.
+핵심 서비스 흐름:
 
 ```text
-FinBridge 접속
-→ AI모드 / 지원사업 / 마이페이지 등 주요 탭 진입
-→ 일반모드 또는 집중모드 선택
-   ├─ 일반모드: 자연어 중심의 편한 대화
-   └─ 집중모드: 첫 대화 전 구조화된 조건 입력
+사용자 상황
 → 실제 지원사업 탐색
-→ 사용자 조건과 지원사업 조건 Matching
-→ 재무·리스크 확인
-→ Evidence 기반 AI 대화형 설명
-→ 공식 출처 및 다음 행동 확인
+→ 비정형 자격조건 구조화
+→ 사용자 조건과 Deterministic Matching
+→ Evidence 검증
+→ 재무·리스크 계산
+→ AI 설명
+→ 공식 출처
+→ 다음 행동
 ```
 
-사용자가 메인 화면에서 모드를 선택하지 않고 채팅 입력창에 바로 입력하면 자동으로 일반모드로 시작한다.
+즉, 예비창업자·소상공인·프리랜서가 흩어진 자금지원 정보를 찾는 데 그치지 않고,
+실제 공고의 복잡한 자격조건을 구조화하고 사용자 조건과 검증한 뒤,
+자금조달 이후의 현금흐름·Runway·잔존채무 등 재무 위험까지 설명 가능한 방식으로 계산해
+AI가 근거와 다음 행동을 설명하는 금융 의사결정 지원 서비스다.
 
-집중모드는 첫 진입 시에만 필요한 입력을 상대적으로 세밀하게 받고, 이후 대화는 자연어 기반의 연속 대화로 진행한다.
+# 3. UX Contract
 
-# 7. Current Core Features
+[TEAM DECISION]
 
-## 7.1 사용자 유형 기반 개인화
+주요 화면은 다음 흐름을 기준으로 한다.
 
-사용자를 다음 유형으로 구분한다.
+- AI모드
+- 지원사업
+- 마이페이지
+- 로그인
+- 회원가입
 
-- 예비창업자
-- 소상공인
-- 프리랜서
+## 3.1 AI모드
 
-유형과 함께
+### GENERAL — 일반모드
 
-- 지역
-- 업종
-- 자본금 등
+- 사용자가 모드를 선택하지 않고 바로 입력하면 자동 일반모드
+- 자연어 중심의 낮은 진입장벽
+- 필요한 정보가 부족하면 자연스럽게 추가 질문
+- 정밀한 Eligibility 검증이 필요하면 집중모드 전환 제안 가능
 
-사용자 프로필을 활용한다.
+### FOCUS — 집중모드
 
+- 첫 대화 전에 Matching에 필요한 최소 구조화 Profile 입력
+- 현재 후보 필드: `user_type`, `region`, `age`, `business_status`, `business_age`, `industry`, `capital`, `intent`
+- 모든 개인정보를 무조건 요구하지 않는다.
+- 첫 구조화 입력 후에는 자연어 연속 대화로 전환한다.
 
-## 7.2 지원사업 맞춤 탐색
+두 모드 모두 첫 대화 전 예시 질문을 제공할 수 있다.
 
-정부지원금·정책자금 대출·지자체 혜택 중
-사용자 프로필과 관련 있는 정보를 탐색해 제공한다.
+## 3.2 AI 답변 표현
 
+- GPT/Claude형 자연스러운 텍스트 채팅을 우선한다.
+- 내부 Matching 상태는 구조적으로 유지하되 상태 카드만 나열하지 않는다.
+- 사용자에게는 “현재 확인되는 조건”, “추가 확인이 필요한 부분”, “판단하기 어려운 부분” 등으로 설명한다.
+- AI는 최종 지원 자격, 대출 승인, 금융 결과를 보장하지 않는다.
 
-## 7.3 AI 상담
+## 3.3 지원사업 상세 ↔ AI
 
-[TEAM DECISION — 2026-08-29]
+지원사업 상세의 `AI에게 이 공고 물어보기`는 `program_id` context를 `/chat`에 전달하는 구조를 사용한다.
 
-AI 상담의 기본 표현 방식은 GPT·Claude와 유사한 **텍스트 대화형 채팅**이다.
+# 4. Data Ground Truth
 
-Backend 내부에서는 지원사업 조건을 `MATCHED`, `NOT_MATCHED`, `NEEDS_REVIEW`, `UNKNOWN` 등 구조화된 상태로 관리할 수 있지만, 사용자 화면에서는 이를 별도의 판정 카드만으로 제시하기보다 대화 문장 안에서 다음 내용을 자연스럽게 설명한다.
+## 4.1 Main Source
 
-- 현재 입력 기준으로 확인되는 조건
-- 추가 확인이 필요한 조건
-- 현재 데이터만으로 판단하기 어려운 조건
-- 관련 지원사업 및 추천 우선순위
-- 공식 출처
-- 다음 행동
+[OFFICIAL / EXPERIMENT]
 
-AI는 최종 지원 자격 또는 대출 승인을 보장하지 않는다.
+현재 검증된 Main Source는 중소벤처기업부 기업마당 지원사업정보 API다.
 
-## 7.4 리스크 계산기
-
-창업과 관련된
-
-- 초기 비용
-- 매출
-- 지출
-- 대출 조건
-
-등을 입력하여
-사용자가 버틸 수 있는 기간과
-사업 악화 또는 폐업 상황에서의 위험을 확인하는 기능이다.
-
-
-## 7.5 매출장표 분석
-
-[TEAM DECISION — 2026-08-29]
-
-소상공인용 매출장표 분석은 **제출 Public URL에서 사용자가 기능의 존재와 흐름을 확인할 수 있어야 한다.**
-
-구현 우선순위는 다음과 같다.
-
-1. 2026-09-03~04 내부 완료 목표 전까지 실제 업로드·분석 기능 구현을 우선 시도한다.
-2. 핵심 Backend와 배포 안정성을 해칠 정도로 일정이 부족하면, 배포 URL에는 기능 진입점과 결과 화면을 유지하되 **`DEMO SAMPLE` 등 실제 분석이 아님을 명확히 표시한 데모 상태**를 사용한다.
-3. 데모 결과를 실제 사용자 파일 분석 또는 실제 AI 분석 결과처럼 표현하지 않는다.
-4. 공식 기능명세서에는 최종적으로 실제 동작·검증된 범위만 작성한다.
-
-CSV/Excel의 실제 지원 Schema와 Backend 분석 로직은 아직 확정되지 않았다.
-
-## 7.6 소득 안정성 분석
-
-[TEAM DECISION — 2026-08-29]
-
-프리랜서용 소득 안정성 분석은 MVP에서 구현 가능한 범위의 **간이·설명 가능한 지표**로 제공하는 방향을 채택한다.
-
-- 계산은 가능한 한 deterministic code로 수행한다.
-- 완전한 신용평가 또는 금융기관 수준의 상환능력 판정으로 표현하지 않는다.
-- UI에는 결과 해석의 한계를 알리는 작은 회색 주의사항을 함께 표시한다.
-- 최종 계산식과 입력값은 구현·검증 후 확정한다.
-
-## 7.7 AI Interaction Modes
-
-[TEAM DECISION — 2026-08-29]
-
-### 일반모드
-
-- 입력값을 강하게 요구하지 않는다.
-- 사용자가 자연어로 편하게 질문하도록 한다.
-- 메인 화면에서 모드를 선택하지 않고 바로 채팅하면 자동으로 일반모드가 된다.
-- 입력창 주변에는 바로 입력 시 일반모드로 시작된다는 안내를 연한 회색 문구로 제공한다.
-- 사용자의 질문이 지원자격 세부 판정 등 구조화된 정보가 필요한 시점에 도달하면 집중모드 전환을 제안할 수 있다.
-
-권장 전환 문구:
-
-> 조금 더 정확하게 확인해볼까요? 지역·나이·사업 단계 등 몇 가지 조건만 입력하면, FinBridge가 공고별 조건을 비교해 맞는 부분과 추가 확인할 부분을 더 구체적으로 보여드릴 수 있어요.
-
-### 집중모드
-
-- 첫 채팅 전 필요한 입력을 체크·선택형 등 구조화된 방식으로 상대적으로 세밀하게 받는다.
-- 정확한 최종 입력 필드는 Eligibility/Profile Schema 확정에 맞춰 최소 범위로 정한다.
-- 첫 구조화 입력 이후에는 매 턴마다 강한 폼 입력을 요구하지 않고 자연어 대화를 이어간다.
-- 일반모드와 집중모드 모두 첫 대화 전 예시 질문 2개를 노출한다.
-
-## 7.8 Support Program UI
-
-[TEAM DECISION — 2026-08-29]
-
-지원사업 목록 카드에는 공고를 직관적으로 구분할 수 있는 **공고 이미지 영역**을 둔다.
-
-이미지는 지원사업 리스트 카드에 배치하며 AI 답변 메시지 안의 필수 요소로 사용하지 않는다.
-
-기존 카드의 텍스트 정보는 유지한다.
-
-예:
-
-- 카테고리
-- 공고명
-- 주요 지원내용
-- 지원 대상
-- D-day 또는 신청기간
-- 자세히 보기
-
-공고 이미지는 시각적 UI 자산이며, 이미지 자체를 자격조건·지원금액·신청기간의 Evidence로 사용하지 않는다.
-
-# 8. Current Data Categories
-
-현재 기획서에 명시된 데이터 유형은 다음과 같다.
-
-## 8.1 External Public Data
-
-현재 MVP의 Main Source는 다음과 같다.
-
-### DS-001 기업마당 지원사업정보 API
-
-Status: `VERIFIED`
-
-2026-08-28 실제 API 호출과 JSON Response Schema 확인을 완료했다.
-
-현재 역할:
-
-- 실제 지원사업 후보 탐색
-- 공고 기본정보 제공
-- 비정형 Eligibility Extraction 대상
-- 공식 상세공고 URL 및 원문 Evidence 연결
-
-추가 Source는 다음 상태로 관리한다.
-
-- K-Startup: 공식 Source 존재 확인, 실제 보완 가치 미검증
-- 정책자금 데이터: 공식 Source 및 실제 Schema 조사 중
-- 상권 데이터: 핵심 MVP 완료 이후 선택적 검토
-
-지원사업 또는 금융 데이터를 확보하지 않은 상태에서 임의 값을 생성하지 않는다.
-
-## 8.2 User Profile Data
-
-현재 기본 후보:
-
-- 사용자 유형
-- 지역
-- 자본금
-- 업종
-
-기업마당 실제 데이터의 Eligibility 조건에 따라 다음 정보가 추가로 필요할 수 있다.
-
-- 연령
-- 창업/사업 상태
-- 창업 업력
-- 사업장 소재지
-- 기타 공고별 필요 조건
-
-입력 방식은 모드에 따라 다르게 설계한다.
-
-- 일반모드: 자연어 입력 후 필요한 정보만 추가 질문
-- 집중모드: 첫 대화 전 최소 구조화 Profile을 체크·선택형 등으로 입력
-
-정확한 Profile Schema는 아직 Freeze 전이다.
-
-## 8.3 User Financial Data
-
-현재 후보:
-
-- 매출장표 CSV
-- 매출장표 Excel
-- 소득 데이터
-- 현금흐름 관련 입력값
-
-
-# 9. Current Output
-
-서비스는 사용자에게 단순한 검색 결과만 제공하지 않는다.
-
-현재 목표 출력은 다음을 포함한다.
-
-- 사용자 상황에 맞는 지원사업 정보
-- 사용자 재무 상황 분석
-- 리스크 계산 결과
-- AI 설명
-- 참고 자료 및 출처
-- 사용자가 다음에 확인하거나 수행할 행동
-
-
-# 10. Differentiation
-
-현재 기획에서의 핵심 차별점은
-
-지원사업을 단순 검색하는 서비스가 아니라
-
-내 상황 진단
-→ 맞춤 추천
-→ 재무 및 리스크 분석
-→ AI 질의응답
-
-을 하나의 서비스 경험으로 연결한다는 것이다.
-
-
-# 11. Financial Safety
-
-현재 서비스는 금융 의사결정에 영향을 줄 수 있으므로
-
-지원사업,
-대출조건,
-재무수치,
-지원자격 등
-
-중요한 금융 정보를 근거 없이 생성하지 않는 방향으로 개발한다.
-
-사용자에게 특정 지원사업의 최종 자격,
-대출 승인,
-수익 또는 금융 결과를 보장하는 서비스로 표현하지 않는다.
-
-
-# 12. Current Expansion Direction
-
-현재 기획서에 포함된 향후 확장 아이디어는 다음과 같다.
-
-## Mid-term
-
-- 사용자 프로필 데이터 기반 개인화 고도화
-- 지원사업 마감 알림
-
-## Long-term
-
-- 지원사업 신청 지원
-- 서류 자동완성
-- 세무사·컨설턴트 연결
-- 지자체·창업지원기관 대상 B2B SaaS
-
-
-# 13. Not Yet Ground Truth
-
-다음 항목은 아직 확정된 것으로 취급하지 않는다.
-
-- 최종 생성형 AI 모델
-- LLM API 공급자
-- Backend Framework
-- Database 종류
-- Cloud 및 배포 플랫폼
-- Vector DB 사용 여부
-- Embedding 모델
-- Agent Framework
-- 추가 데이터 Source 구성 및 Secondary Source 최종 채택 여부
-- 정책자금 데이터의 실제 확보 범위
-- 상권 데이터 사용 여부
-- 실제 재무·리스크 계산식
-- CSV / Excel 최종 지원 Schema
-- 지원사업 Matching Algorithm
-- Evidence Validation 세부 규칙
-
-위 사항은 데이터 검증과 팀 의사결정을 거쳐
-확정된 경우에만 이 문서로 이동한다.
-
-
-# 14. Delivery / Design Contract
-
-[TEAM DECISION — 2026-08-29]
-
-팀 운영 기준:
-
-- 2026-08-29 현재 개발·디자인·QA 범위를 과도하게 확장하지 않는다.
-- Backend 구축·배포, 디자인, QA는 **2026-09-03~04까지 내부 완료**하는 것을 목표로 한다.
-- 팀이 공유한 제출 일정은 2026-09-07 오전이며, 최종 제출 직전 공식 공지의 최신 마감 시각을 다시 확인한다.
-- 09-03~04 이후에는 기획서·기능명세서 작성과 최종 QA에 시간을 확보한다.
-
-UI 개발 방식:
+공식 호출 Contract:
 
 ```text
-Backend/AI 요구사항 및 사용자 흐름 정의
-→ 공통 UI/Backend 핸드오프 문서
-→ 디자이너 Figma 반영
-→ Backend/API 구현
-→ Frontend 연동
-→ QA
+GET https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do
+auth = crtfcKey
+dataType = json
+searchCnt = 100
+searchLclasId = 06
 ```
 
-현재 디자이너가 만든 전체 톤앤매너와 화면 구조는 가능한 한 유지하며, Backend 요구 때문에 필요한 정보·탭·배너·상태만 최소 추가한다.
+2026-08-29 수동 Refresh 실측:
 
-# 15. Documentation Rule
+- HTTP 200
+- 창업 분야 Raw records: 69
+- Unique programs: 69
+- Duplicate ID: 0
+- Loader / Normalization: 69 성공
 
-새로운 사항이 확정되면
+지원사업 데이터 처리 기준:
 
-1. 실제 근거를 확인하고
-2. 팀 결정 여부를 확인한 뒤
-3. Ground Truth에 반영한다.
+```text
+Official Data
+→ Raw Snapshot
+→ Normalization
+→ Eligibility Extraction
+→ Structured Eligibility
+→ Deterministic Matching
+→ Evidence
+→ AI Explanation
+```
 
-아이디어 단계의 내용을
-구현 완료 또는 확정된 사항처럼 기록하지 않는다.
+`hashtags`나 `trgetNm` 하나만으로 최종 Eligibility를 판정하지 않는다.
+
+## 4.2 Snapshot Policy
+
+[TEAM DECISION / EXPERIMENT]
+
+- 사용자 요청마다 기업마당 API를 직접 호출하지 않는다.
+- 기업마당 API는 수동 Collector / Snapshot Refresh 경로에서만 호출한다.
+- Runtime Snapshot 실패 시 기존 정상 데이터가 유지되어야 한다.
+- Public Deployment는 외부 API refresh 없이도 검증된 Bootstrap Snapshot으로 기동 가능해야 한다.
+- 현재 검증된 Bootstrap은 창업 분야 69건이다.
+
+Loader 우선순위:
+
+```text
+1. FINBRIDGE_BIZINFO_SNAPSHOT
+2. valid runtime service-ready snapshot
+3. tracked bootstrap snapshot
+```
+
+# 5. Eligibility / Matching Ground Truth
+
+[TEAM DECISION / EXPERIMENT]
+
+Eligibility는 원문 Evidence와 함께 구조화한다.
+
+핵심 원칙:
+
+- 조건 부재와 Evidence 부족을 구분한다.
+- Program extraction status와 Condition extraction status를 구분한다.
+- 대안 경로는 OR Group으로 표현한다.
+- `ELIGIBILITY_EXCEPTION`은 metadata로만 사용한다.
+- Boolean 판정은 `common_conditions`, `eligibility_groups`, `global_exclusions`를 사용한다.
+- `EXCLUDE`는 positive predicate를 한 번만 평가한다.
+- Evidence 없는 `SUPPORTED`는 허용하지 않는다.
+- confidence 확률값을 Eligibility 확률처럼 사용하지 않는다.
+- 사용자 입력 부족은 `NO_MATCH`가 아니라 `NEEDS_REVIEW` 방향으로 처리한다.
+- Evidence 부족 또는 구조 불충분 상태에서 안전한 `MATCH`를 만들지 않는다.
+
+Program extraction status:
+
+- `SUPPORTED`
+- `NEEDS_REVIEW`
+- `UNKNOWN`
+- `UNSUPPORTED`
+
+현재 69건 deterministic extraction baseline 결과:
+
+- `SUPPORTED`: 22
+- `NEEDS_REVIEW`: 46
+- `UNSUPPORTED`: 1
+
+이는 전체 자격조건 완전 추출을 의미하지 않는다.
+
+# 6. Retrieval Ground Truth
+
+[TEAM DECISION / EXPERIMENT]
+
+현재 MVP Retrieval baseline:
+
+```text
+Structured Filter
+→ Exact / Keyword Search
+→ Deterministic Ranking
+→ Top-N
+```
+
+- Vector DB / Embedding / Semantic Retrieval은 현재 사용하지 않는다.
+- Retrieval score는 Eligibility 확률 또는 신청 가능 확률이 아니다.
+- Retrieval 상위 결과가 자동으로 `MATCH`가 되지 않는다.
+- 최종 Matching은 deterministic Matcher가 담당한다.
+- Repository에 없는 지원사업을 LLM이 생성하지 않는다.
+
+# 7. Risk Calculation Ground Truth
+
+[TEAM DECISION / EXPERIMENT]
+
+Risk Calculator는 금융기관의 신용평가나 대출 승인 예측 모델이 아니다.
+
+MVP 입력:
+
+- `initial_cost`
+- `own_capital`
+- `monthly_revenue`
+- `monthly_expense`
+- `loan_amount`
+- `annual_interest_rate`
+- `loan_term_months`
+
+현재 MVP 지원 상환방식:
+
+- 원리금균등상환 1종
+
+Deterministic 계산 항목:
+
+- 초기 가용 현금
+- 월 원리금 상환액
+- 월 현금흐름
+- Cash Burn
+- Runway
+- Runway 시점 잔존채무
+
+LLM은 금융식을 재계산하지 않고 Backend가 계산한 결과만 설명한다.
+
+세금·수수료·변동금리·연체·추가차입 등은 현재 계산 범위에 포함하지 않는다.
+
+# 8. LLM Ground Truth
+
+[TEAM DECISION / EXPERIMENT]
+
+현재 Backend LLM Provider:
+
+- Provider: `OpenAI`
+- API: Responses API
+- Model: `gpt-5.6-luna`
+- reasoning effort: `low`
+- Provider failure: `TEMPLATE_FALLBACK`
+
+LLM 역할:
+
+- 자연어 설명
+- 검증 결과 요약
+- 추가 확인사항
+- 다음 행동 설명
+
+LLM이 담당하지 않는 것:
+
+- 지원사업 존재 여부 생성
+- MATCH / NO_MATCH 최종 계산
+- 금융 계산
+- 지원금액·신청기간·공식 URL 생성
+- 대출금리 생성
+
+OpenAI 장애가 발생해도 Structured Program / Match / Evidence / Source는 유지한다.
+
+# 9. Current Technology / Deployment Decision
+
+[TEAM DECISION — 2026-08-29]
+
+현재 MVP 기술선택:
+
+```text
+Frontend
+- React + Vite + TypeScript
+- Hosting target: Vercel Hobby
+
+Backend
+- Python 3.14.3
+- FastAPI
+- Pydantic v2
+- Uvicorn
+- Hosting target: Railway Hobby
+
+Data
+- Bizinfo Snapshot / Bootstrap
+- MVP Database: 사용하지 않음
+
+AI
+- OpenAI Responses API
+- gpt-5.6-luna
+```
+
+Database는 “미정”이 아니라 **현재 MVP에서 의도적으로 사용하지 않는다.**
+
+Railway PostgreSQL은 다음과 같은 영속 상태가 실제로 필요해질 때만 검토한다.
+
+- 실제 Auth / 회원 데이터
+- 사용자 Profile 영속 저장
+- 대화 Session 영속 저장
+- 즐겨찾기
+- Runtime Collector 결과 영속 보존
+- 복수 Backend instance 간 공유 상태
+
+Public URL이 실제 생성·외부 검증되기 전까지 `DEPLOYED` 또는 `PUBLIC VERIFIED`로 표현하지 않는다.
+
+# 10. Sales / Income Features
+
+## 10.1 매출장표 분석
+
+- Public UI 진입점은 유지한다.
+- 실제 CSV/XLSX 업로드·분석 구현을 우선 시도한다.
+- 핵심 Backend/배포 안정성을 해치면 `DEMO SAMPLE`로 명확히 표시한다.
+- Demo를 실제 사용자 파일 분석처럼 표현하지 않는다.
+- 공식 기능명세서에는 실제 구현·검증된 기능만 기재한다.
+
+## 10.2 프리랜서 소득 안정성
+
+- 월별 소득의 평균·표준편차·변동계수 등 간단하고 설명 가능한 deterministic 지표 우선
+- 금융기관의 신용평가·소득인정·상환능력 판정을 의미한다고 표현하지 않는다.
+- UI에 한계 안내문을 표시한다.
+
+# 11. Data / Security Principles
+
+- 공식·공개·이용조건이 명확한 데이터만 사용한다.
+- Raw Evidence를 유지한다.
+- 결측값을 0·평균·임의 값으로 채우지 않는다.
+- API Key, Secret, Token, Password는 Git/문서/Source Code에 기록하지 않는다.
+- 실제 Secret은 `.env` 및 배포 플랫폼 Secret Environment Variable로 관리한다.
+- `.env`는 Git에서 제외한다.
+- 로그에 API Key 또는 전체 민감 Profile/금융입력을 노출하지 않는다.
+
+# 12. Explicitly Not Current MVP Ground Truth
+
+다음은 현재 MVP 구현 완료 또는 필수 Architecture로 취급하지 않는다.
+
+- K-Startup 추가 연동
+- 상권 데이터
+- Vector DB
+- Graph DB
+- Multi-Agent
+- Semantic Retrieval
+- Scheduler / Celery
+- 자동 주기 Collector
+- PostgreSQL / ORM
+- Session Persistence
+- 전체 기업마당 분야 Coverage
+- 전체 공고·별첨 Eligibility 완전 구조화
+- 정책자금 공식 데이터 자동 연동
+- 범용 CSV/XLSX Parser
+
+Core Flow와 Public Deployment 완료 후 필요성과 효과가 확인될 때만 추가한다.
+
+# 13. Documentation / Submission Rule
+
+[TEAM DECISION]
+
+- 최종 기능명세서에는 실제 구현·검증된 기능만 작성한다.
+- 기획서에서는 현재 구현 범위와 향후 확장 방향을 명확히 구분한다.
+- 미구현 기능을 현재 구현 완료 기능처럼 표현하지 않는다.
+- 최종 Public URL에서 실제 구현·검증된 상태를 `FINANCE_AI_DEV_STATUS.md`에 반영한 뒤 제출 문서를 작성한다.
