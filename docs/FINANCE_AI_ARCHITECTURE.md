@@ -1,6 +1,6 @@
 # FINANCE AI — Architecture
 
-Last Updated: 2026-08-28
+Last Updated: 2026-08-29
 
 이 문서는 2026 금융 AI Challenge MVP의 AI / Backend / Data / Infra Architecture를 정의한다.
 
@@ -19,22 +19,28 @@ Last Updated: 2026-08-28
 
 # 1. Architecture Goal
 
-사용자가 자신의 상황을 입력하면
+FinBridge에서 사용자가 일반모드 또는 집중모드로 질문하면 다음 흐름을 실제 Backend에서 처리한다.
 
 ```text
-사용자 입력
+사용자 진입
+→ Interaction Mode Router
+   ├─ 일반모드: 자연어 입력
+   └─ 집중모드: 첫 대화 전 구조화 입력
+→ 사용자 조건 파악
 → 지원사업 후보 탐색
 → 비정형 자격조건 구조화
 → 사용자 조건과 deterministic matching
 → 재무·리스크 계산
 → Evidence 검증
-→ 생성형 AI 설명
+→ 생성형 AI 대화형 설명
 → 출처 및 다음 행동 제공
 ```
 
-까지 실제 Backend에서 처리한다.
-
 LLM이 지원사업 검색, 자격판정, 금융계산을 모두 직접 수행하는 구조는 사용하지 않는다.
+
+[TEAM DECISION — 2026-08-29]
+
+사용자에게 보이는 답변은 GPT/Claude와 유사한 텍스트 채팅 형식을 사용한다. 내부의 `MATCHED / NEEDS_REVIEW / UNKNOWN` 등 구조화 결과는 버리지 않고 AI 설명의 근거와 Frontend action 구성에 사용한다.
 
 # 2. Verified Data Finding
 
@@ -154,9 +160,37 @@ Frontend에서 사용자 입력을 받는다.
 * certificate
 * education completion
 
-모든 정보를 처음부터 요구하지 않는다.
+[TEAM DECISION — 2026-08-29]
 
-필요한 공고가 검색된 이후 추가 조건만 질문하는 방식을 우선 검토한다.
+입력 UX는 `GENERAL` / `FOCUS` 두 모드로 분리한다.
+
+### GENERAL — 일반모드
+
+- 사용자가 자연어로 바로 시작할 수 있다.
+- 사용자가 모드 버튼을 선택하지 않고 채팅창에 입력해도 일반모드로 처리한다.
+- 자연어에서 확보 가능한 조건을 파싱하고, 실제 Matching에 필요한 정보가 부족하면 후속 질문을 한다.
+- 구조화 입력이 유리한 시점에는 집중모드 전환을 제안할 수 있다.
+
+### FOCUS — 집중모드
+
+- 첫 대화 전에 지원사업 탐색과 Matching에 필요한 최소 입력을 체크·선택형 등 구조화된 UI로 받는다.
+- 정확한 필드 목록은 최종 Eligibility/Profile Schema에 맞춰 최소화한다.
+- 최초 구조화 입력 후에는 매 턴 폼을 강제하지 않고 일반 채팅 형태로 대화를 이어간다.
+
+두 모드 모두 첫 대화 전 예시 질문 2개를 보여주는 방향으로 UI Contract를 고정한다.
+
+## 4.1.1 Mode State — Draft
+
+Backend/API에서 최소한 다음 상태를 표현할 수 있도록 검토한다.
+
+```text
+mode = GENERAL | FOCUS
+focus_intake_completed = true | false
+suggest_focus_mode = true | false
+program_context_id = nullable
+```
+
+정확한 Request/Response 필드명은 API Contract Freeze 시 확정한다.
 
 ## 4.2 Request Validation
 
@@ -388,35 +422,44 @@ AGE = MATCHED
 
 사용자는 왜 이런 결과가 나왔는지 확인할 수 있어야 한다.
 
-# 11. Adaptive Question
+# 10.1 Match Status Presentation Rule
 
-초기 Profile 입력을 지나치게 크게 만들지 않는다.
+[TEAM DECISION — 2026-08-29]
 
-추천 구조:
+Backend는 조건별 상태를 구조화해 반환한다.
 
-```text
-기본 Profile 입력
-        ↓
-지원사업 후보 검색
-        ↓
-해당 공고에 필요한 추가 조건 파악
-        ↓
-사용자에게 필요한 질문만 추가
-        ↓
-최종 Matching
-```
+Frontend의 기본 사용자 경험은 상태 칩만 나열하는 판정 화면이 아니라 **대화형 AI 답변**이다.
 
 예:
 
-어떤 공고가
+```text
+현재 입력하신 정보로는 연령 조건은 맞습니다.
+다만 이 공고는 사업장 소재지 조건이 추가로 있어 현재 정보만으로는 최종 판단하기 어렵습니다.
+공식 공고에서 해당 조건을 한 번 더 확인해 주세요.
+```
 
-* 여성
-* 39세 이하
-* 대구 소재
+필요한 경우 지원사업 카드·상세 화면에서는 조건 요약 또는 근거 UI를 보조적으로 사용할 수 있다.
 
-조건을 요구한다면 필요한 경우에만 해당 정보를 추가로 확인한다.
+# 11. Adaptive Question / Focus Mode Suggestion
 
-MVP 구현 난이도가 높으면 첫 버전에서는 고정 Profile 방식으로 시작할 수 있다.
+일반모드에서 처음부터 모든 Profile을 요구하지 않는다.
+
+```text
+자연어 질문
+→ 현재 정보로 후보 탐색
+→ 공고에 필요한 추가 조건 파악
+→ 간단한 후속 질문 또는 집중모드 제안
+→ 추가 정보 확보
+→ Matching 갱신
+```
+
+집중모드에서는 첫 대화 전에 최소 구조화 Profile을 입력받아 초기 Matching 정확도를 높인다.
+
+집중모드 전환 권장 문구:
+
+> 조금 더 정확하게 확인해볼까요? 지역·나이·사업 단계 등 몇 가지 조건만 입력하면, FinBridge가 공고별 조건을 비교해 맞는 부분과 추가 확인할 부분을 더 구체적으로 보여드릴 수 있어요.
+
+MVP에서는 복잡한 동적 폼 생성까지 구현하지 않아도 된다. 고정된 최소 Focus Intake + 필요한 후속 질문 조합을 우선한다.
 
 # 12. Calculation Engine
 
@@ -507,6 +550,15 @@ LLM은 다음 역할에 사용한다.
 해당 사업은 영월군 거주 또는 선정 후 주소 이전 조건이 있어
 지역 조건 확인이 추가로 필요합니다.
 ```
+
+## Conversational Response
+
+[TEAM DECISION — 2026-08-29]
+
+* GPT/Claude와 유사한 자연스러운 채팅 문장 생성
+* 조건 충족·추가 확인·판단 불가를 문장 안에 포함
+* 근거가 있는 추천 우선순위 설명
+* 일반모드에서 구조화 입력이 필요할 때 집중모드 전환 제안
 
 ## Summary
 
@@ -667,13 +719,31 @@ backend/
 
 아직 최종 Endpoint는 아니다.
 
-후보:
-
 ```text
 GET /health
 ```
 
 서비스 상태 확인.
+
+```text
+POST /chat
+```
+
+일반모드/집중모드 공통 대화 Orchestration 후보.
+
+Request 후보:
+
+```json
+{
+  "mode": "GENERAL",
+  "message": "카페 창업 준비 중인데 받을 수 있는 지원사업이 있을까요?",
+  "focus_profile": null,
+  "program_id": null,
+  "session_id": null
+}
+```
+
+지원사업 상세에서 `AI에게 이 공고 물어보기`를 누르는 경우 `program_id`를 context로 전달하는 구조를 검토한다.
 
 ```text
 POST /programs/match
@@ -694,10 +764,18 @@ POST /risk/calculate
 재무·창업 리스크 계산.
 
 ```text
-POST /ai/explain
+POST /income-stability/calculate
 ```
 
-검증된 검색 및 계산 결과 설명.
+프리랜서 간이 소득 안정성 계산 후보.
+
+```text
+POST /sales/analyze
+```
+
+매출장표 실제 분석을 구현하는 경우의 후보. 일정 부족 시 이 Endpoint를 억지로 만들지 않고 Frontend `DEMO SAMPLE`과 실제 Backend 기능을 명확히 분리한다.
+
+기존 `POST /ai/explain` 역할은 `/chat` Orchestration 내부 또는 별도 Endpoint로 유지할 수 있다.
 
 실제 Endpoint는 Frontend 계약과 함께 확정한다.
 
@@ -705,23 +783,30 @@ POST /ai/explain
 
 Frontend가 LLM 자연어만 받는 구조를 피한다.
 
-예:
+대화형 UI를 사용하더라도 Backend는 Structured Result를 함께 반환한다.
+
+Draft:
 
 ```json
 {
-  "program": {},
+  "mode": "GENERAL",
+  "reply": "현재 입력하신 정보 기준으로...",
+  "programs": [],
   "match": {},
   "evidence": [],
-  "explanation": "",
-  "source": {}
+  "source": {},
+  "actions": [],
+  "suggest_focus_mode": false
 }
 ```
 
 즉,
 
-**Structured Result + AI Explanation**
+**Structured Result + AI Conversational Reply + Evidence + UI Action**
 
 을 함께 반환한다.
+
+`reply`가 실패하더라도 Structured Matching/Evidence까지 사라지지 않게 한다.
 
 # 24. Unsupported Handling
 
@@ -786,6 +871,17 @@ Local Service DB / Snapshot
 사용자 요청은 Local DB를 우선 조회하는 구조를 검토한다.
 
 데이터 최신 기준일을 화면에 표시할 수 있어야 한다.
+
+# 26.1 Support Program Poster Asset Rule
+
+[TEAM DECISION — 2026-08-29]
+
+지원사업 리스트 카드에는 공고 이미지 영역을 둔다.
+
+- 이미지는 Frontend/UI 자산으로 취급한다.
+- 이미지 안의 문구를 Backend Truth 또는 Eligibility Evidence로 파싱하지 않는다.
+- 공고명·대상·기간·금액·기관 등 실제 정보는 검증된 데이터 Source를 기준으로 표시한다.
+- 이미지와 실제 공고가 매핑되는 경우 `program_id` 등 명시적 매핑을 사용한다.
 
 # 27. Security
 
@@ -1001,27 +1097,23 @@ Frontend에 Secret을 노출하지 않는다.
 
 # 37. Architecture Freeze Conditions
 
-다음 조건이 충족된 후 주요 기술을 확정한다.
+[RECOMMENDATION — 2026-08-29]
 
-* 기업마당 Sample 확대 검증
-* Eligibility Schema 검증
-* 정책자금 Source 검증
-* 실제 MVP 입력항목 확정
-* 리스크 계산식 확정
-* Frontend API 요구사항 확인
+2026-08-29 일정 제약을 반영해 모든 데이터 후보 검증이 끝날 때까지 Backend 구현을 미루지 않는다.
 
-이후:
+Core Implementation을 시작하기 위한 최소 Freeze 조건:
 
-```text
-Data Schema
-→ API Contract
-→ Framework
-→ Database
-→ LLM
-→ Deployment
-```
+* DS-001 기업마당을 Main Source로 사용
+* MVP용 최소 Program Schema
+* MVP용 최소 Eligibility Schema
+* 일반모드 / 집중모드 입력 Contract
+* 지원사업 결과 / Evidence Contract
+* 핵심 리스크 계산 입력·출력
+* Public 배포 방식
 
-순서로 확정한다.
+K-Startup, 상권 데이터, 범용 CSV/Excel Parser 등은 Core 구현의 선행조건으로 두지 않는다.
+
+아직 미확정인 세부 기술은 단순한 baseline을 먼저 선택하고 필요성이 확인될 때만 확장한다.
 
 # 38. Current Architecture Decision
 
@@ -1054,22 +1146,28 @@ Official Data
 
 # 39. Immediate Next Step
 
-Architecture 문서 작성 이후 바로 대규모 Backend 구현을 시작하지 않는다.
+[TEAM DECISION: 내부 완료 일정 / RECOMMENDATION: 아래 구현 순서 — 2026-08-29]
 
-다음 순서:
+Backend 구축·배포, 디자인, QA를 2026-09-03~04까지 내부 완료하는 것을 목표로 한다.
 
-1. 기업마당 Sample 확대
-2. Eligibility 조건 유형 분석
-3. Eligibility Schema 검증
-4. 정책자금 데이터 Source 검증
-5. 핵심 리스크 계산식 결정
-6. MVP 입력값 확정
-7. Architecture Freeze
-8. Backend Scaffold 생성
-9. Data Pipeline 구현
-10. Matching Engine 구현
-11. Calculation Engine 구현
-12. AI Integration
-13. Frontend Integration
-14. Deployment
-15. QA / Evaluation
+따라서 다음 순서로 진행한다.
+
+1. FinBridge UI/Backend Handoff 기준으로 화면별 최소 API 요구사항 Freeze
+2. 최소 Profile / Focus Intake Schema Freeze
+3. 최소 Program / Eligibility Schema Freeze
+4. 핵심 리스크 계산식 확정
+5. Backend Technology Stack과 배포 방식 즉시 결정
+6. Backend Scaffold + `/health`
+7. 기업마당 Snapshot/DB 기반 Retrieval
+8. Deterministic Matching
+9. Risk Calculation
+10. `/chat` 또는 동등한 AI Orchestration
+11. 지원사업 상세 ↔ Chat `program_id` context 연동
+12. 프리랜서 소득 안정성 간이 계산
+13. 매출장표 실제 분석은 시간 확인 후 구현; 부족하면 명시적 Demo Fallback
+14. Frontend Integration
+15. Public Deployment
+16. QA / Evaluation / Error Handling
+17. `FINANCE_AI_DEV_STATUS.md` 즉시 최신화
+
+Secondary Source 확대, Vector DB, Graph DB, Multi-Agent 등은 위 흐름 완료 전 추가하지 않는다.

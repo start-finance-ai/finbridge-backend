@@ -1,6 +1,6 @@
 # FINANCE AI — Development Status
 
-Last Updated: 2026-08-28
+Last Updated: 2026-08-29
 
 이 문서는 2026 금융 AI Challenge Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
 
@@ -13,13 +13,23 @@ Last Updated: 2026-08-28
 
 Current Phase:
 
-G2 — Data Verification
-→ G3 Architecture Freeze 준비 단계
+```text
+G3 — Architecture / UI Contract Freeze
+→ G4 Core Implementation 즉시 진입 준비
+```
 
-현재는 대규모 Backend 구현 전 단계이다.
+[TEAM DECISION — 2026-08-29]
 
-기업마당 Main Data Source의 최초 실측 검증은 완료했으며, Eligibility Schema와 정책자금 데이터, 리스크 계산식 등을 추가 검증한 뒤 Architecture Freeze를 진행한다.
+- 팀명: `start`
+- 서비스명: `FinBridge`
+- Backend 구축·배포, 디자인, QA 내부 완료 목표: `2026-09-03~04`
+- 팀 공유 제출 일정: `2026-09-07 오전` — 최종 제출 전 공식 공지 재확인
 
+기업마당 Main Data Source의 최초 실측 검증은 완료되어 있다.
+
+[RECOMMENDATION] 2026-08-28 문서에서는 Architecture Freeze 전에 다수의 추가 데이터 검증을 선행하려 했으나, 현재 일정에서는 **검증된 DS-001을 기준으로 최소 Schema와 API Contract를 빠르게 Freeze하고 Core Backend 구현으로 전환**하는 편이 안전하다.
+
+아직 Backend Application Code는 구현되지 않았다.
 
 # 2. Repository
 
@@ -47,16 +57,10 @@ backend/
 │  └─ planning/
 │     └─ 2026_금융_AI_Challenge_기획서_AI_Backend_Data_Infra_담당초안.md
 │
-├─ scripts/
-│  └─ collect_bizinfo_samples.py
-│
 └─ data/
    └─ raw/
       └─ bizinfo/
-         ├─ bizinfo_finance_sample.json
-         ├─ bizinfo_management_sample.json
-         ├─ bizinfo_startup_sample.json
-         └─ bizinfo_startup_sample_100.json
+         └─ bizinfo_startup_sample.json
 ```
 
 ## Local Development Environment
@@ -96,6 +100,32 @@ backend/
 - Technology Stack
 
 
+# 3.1 2026-08-29 Team Decision Update
+
+다음 내용이 새 Ground Truth / MVP Contract로 확정되었다.
+
+- 공식 서비스명 `FinBridge`
+- 기존 디자이너 UI의 전체 톤앤매너 유지
+- Backend/AI 요구사항을 먼저 UI/Backend Handoff로 정리하고 Figma와 Backend가 같은 기준을 사용
+- AI모드: 일반모드 / 집중모드
+- 모드 미선택 후 바로 입력 → 일반모드
+- 집중모드 첫 대화 전 구조화 입력, 이후 자연어 대화
+- 두 모드 첫 대화 전 예시 질문 2개
+- AI 답변은 GPT/Claude형 텍스트 대화
+- 내부 Matching 상태는 대화형 답변의 근거로 유지
+- 지원사업 리스트 카드에 공고 이미지 영역 추가
+- 지원사업 상세 → AI 채팅 이동 시 `program_id` context 전달 방향
+- 매출장표 분석은 Public URL에 진입점 유지; 일정 부족 시 명시적 `DEMO SAMPLE`
+- 프리랜서 소득 안정성은 간이 deterministic 분석 + 회색 주의사항
+
+UI/Backend Handoff 문서:
+
+```text
+docs/design/0829_FinBridge_UI_Backend_연동_디자인핸드오프_v1.md
+```
+
+위 문서는 구현 완료를 의미하지 않으며 화면/API 요구사항 Contract로 사용한다.
+
 # 4. Data Verification Status
 
 ## DS-001 기업마당 지원사업정보 API
@@ -121,29 +151,12 @@ VERIFIED
 - [x] 비정형 신청기간 존재 확인
 - [x] 지원금액이 자연어에 포함되는 사례 확인
 - [x] 지자체 지원사업 존재 확인
-- [x] 금융 분야 Sample 100건 확보 (`totCnt` 220)
-- [x] 창업 분야 확대 Sample 73건 확보 (`totCnt` 73)
-- [x] 경영 분야 Sample 100건 확보 (`totCnt` 461)
-- [x] 3개 분야 총 273건 Raw Sample 확보
-- [x] 3개 분야 모두 HTTP 200 확인
-- [x] Sample Collector Exit Code 0 확인
-- [x] `data/raw/` Git 제외 규칙 적용 확인
-- [x] `scripts/analyze_bizinfo_samples.py` 구현
-- [x] 273건 전체 Field / Eligibility Review Candidate / 신청기간 / 금액 표현 Profile 완료
-- [x] Human Review Pack 48건 생성 및 Labeling 완료
-- [x] `scripts/evaluate_bizinfo_review_pack.py` 구현 및 실제 실행 완료
-- [x] Baseline Review-Pack Evaluation 완료 — TP 27 / FP 9 / TN 9 / FN 3
 
-Raw Files:
+Raw File:
 
 ```text
-data/raw/bizinfo/bizinfo_finance_sample.json
-data/raw/bizinfo/bizinfo_management_sample.json
 data/raw/bizinfo/bizinfo_startup_sample.json
-data/raw/bizinfo/bizinfo_startup_sample_100.json
 ```
-
-창업 분야는 `searchCnt=100` 요청에 대한 전체 결과가 73건이므로 73건 수집을 정상으로 확인했다.
 
 ### Confirmed Raw Fields
 
@@ -166,17 +179,6 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 - bsnsSumryCn
 - pldirSportRealmMlsfcCodeNm
 - printFileNm
-
-### Full 273-Item Field Profile
-
-- 전체 Item 273건, 고유 `pblancId` 273건, 중복 0건
-- 발견 Field 22개
-- 기본 Field 19개 모두 273/273 non-empty (100%)
-- `fileNm`: 185/273 (67.77%)
-- `flpthNm`: 185/273 (67.77%)
-- `rceptEngnHmpgUrl`: 128/273 (46.89%)
-
-위 세 Field는 Optional로 다뤄야 한다. Eligibility Review Candidate 자동 분석과 48건 Human Review Pack baseline 평가는 완료했지만 Eligibility Schema v0.1 Draft는 아직 완료되지 않았다.
 
 
 # 5. Important Data Findings
@@ -203,8 +205,6 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 
 실제 지원 가능 여부에 중요한 조건은 `bsnsSumryCn`에 자연어로 포함되는 경우가 많다.
 
-정규식 기반 Review Candidate 수는 지역/소재지 232, 연령 24(명시적 숫자 연령 19), 예비창업 29, 사업자 여부 91, 사업 업력 62, 업종 69, 사업자 유형 220, 매출/소득 16, 직원 수 6, 성별 7, 특정 자격/인증 14, 교육 이수 5, 추천/선정/평가 7건이다. 이 수치는 실제 Eligibility 확정 건수가 아니다.
-
 확인된 조건 유형:
 
 - 지역
@@ -223,7 +223,7 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 
 ## 5.3 `trgetNm` 단독 사용 불가
 
-전체 273건의 실제 값은 고유 7개뿐인 비교적 큰 범주다.
+실제 값은 다음과 같이 비교적 큰 범주다.
 
 - 창업벤처
 - 여성기업
@@ -234,8 +234,6 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 ## 5.4 `hashtags` 단독 사용 불가
 
 해시태그는 후보 검색과 Recall 향상에는 활용 가능하지만 최종 지원 자격의 단독 Evidence로 사용하지 않는다.
-
-273건 Eligibility Review Candidate 자동 분석에서도 `hashtags`를 Evidence에서 제외했다.
 
 
 ## 5.5 신청기간 Parsing 필요
@@ -251,17 +249,6 @@ data/raw/bizinfo/bizinfo_startup_sample_100.json
 ```
 
 따라서 단순 `start_date / end_date` 구조만으로는 부족하다.
-
-273건 분류 결과는 명확한 날짜 범위 146, 예산 소진 시까지 97, 상시/수시 14, 별도 공지/참고 3, 차수/분야/세부사업별 상이 4, 기타 비정형 9, 결측 0건이다.
-
-
-## 5.6 지원금액 표현 Profile
-
-- 금액/한도 Keyword Review Candidate: 127건
-- 실제 금액 표현 탐지: 115건
-- 지원·융자·대출·보증 등 지원 문맥 동반 Review Candidate: 111건
-
-세 지표는 탐지 범위가 다르며 서로 같은 값으로 해석하지 않는다. Human Review 전에는 실제 지원금액 확정 건수로 사용하지 않는다.
 
 
 # 6. Current Architecture Decision
@@ -294,27 +281,7 @@ Official Data
 
 현재:
 
-Data Verification Sample Collector 구현 및 실제 실행 검증 완료.
-
-Bizinfo 273건 자동 프로파일링 분석 스크립트 구현 및 실행 완료.
-
-Human Review Pack 생성 및 baseline 평가 스크립트 구현·실행 완료.
-
-Implemented:
-
-- `scripts/collect_bizinfo_samples.py`
-- 환경변수 `BIZINFO_API_KEY` 기반 인증
-- 금융(01), 창업(06), 경영(07) 분야별 `searchCnt=100` 요청
-- Raw Response Bytes 보존 저장
-- HTTP, Network, JSON, Response Structure, File Save 오류 처리
-- 실제 실행 결과 Exit Code 0 및 Raw Sample 총 273건 저장 확인
-- `scripts/analyze_bizinfo_samples.py`
-- 273건 전체 Field 출현율, Eligibility Review Candidate, 신청기간, 금액 표현 Profile
-- 네트워크·LLM·DB 없이 Raw JSON 읽기 전용 분석
-- `scripts/build_bizinfo_review_pack.py`
-- 12개 condition type x (Candidate 3건 + Negative Control 1건), 총 48건 Review Pack 생성
-- `scripts/evaluate_bizinfo_review_pack.py`
-- AI-assisted human-reviewed Review Pack confusion matrix, proxy 지표 및 FP/FN 추출
+NONE
 
 아직 실제 Backend Application Scaffold를 생성하지 않았다.
 
@@ -322,6 +289,7 @@ Implemented:
 
 - Backend API
 - Database
+- Collector
 - Normalizer
 - Retrieval
 - Eligibility Extraction
@@ -334,9 +302,11 @@ Implemented:
 
 # 8. Backend API Status
 
-현재 모든 API Endpoint는 Draft 또는 미구현 상태이다.
+Status:
 
-후보:
+`CONTRACT DRAFTED / NOT IMPLEMENTED`
+
+기존 후보:
 
 ```text
 GET /health
@@ -346,12 +316,20 @@ POST /risk/calculate
 POST /ai/explain
 ```
 
+2026-08-29 UI/Backend Contract 반영 추가 후보:
+
+```text
+POST /chat
+POST /income-stability/calculate
+POST /sales/analyze   # 실제 매출장표 분석 구현 시에만
+```
+
+`/chat`은 일반모드/집중모드, 후속 대화, 선택적 `program_id` context를 처리하는 Orchestration 후보이다.
+
+Endpoint 이름과 Schema는 아직 Freeze되지 않았다.
+
 Status:
-
 NOT IMPLEMENTED
-
-Frontend와 API Contract를 합의한 이후 최종 확정한다.
-
 
 # 9. Database Status
 
@@ -428,19 +406,6 @@ Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우
 Status:
 
 DESIGN / DATA ANALYSIS
-
-- Automated Candidate Profile: COMPLETED (273 items)
-- Human Review Pack: COMPLETED (48 labeled rows)
-- Baseline Review-Pack Evaluation: COMPLETED
-- Eligibility Schema v0.1 Draft: TODO
-
-Review-Pack Evaluation Result:
-
-- TP 27 / FP 9 / TN 9 / FN 3
-- `candidate_precision_proxy`: 75.00%
-- `review_pack_negative_control_false_negative_rate`: 25.00%
-
-이 결과는 12개 condition별 3개 Candidate와 1개 Negative Control로 구성한 stratified Review Pack 내부 결과다. 전체 273건의 정식 precision, recall, accuracy가 아니며 독립 전문가 Gold Standard도 아니다.
 
 현재 Draft Schema 후보:
 
@@ -536,21 +501,32 @@ OFFICIAL_FOUND / NOT VERIFIED
 
 Status:
 
-NOT STARTED
+`UI/BACKEND HANDOFF DRAFTED / IMPLEMENTATION NOT STARTED`
 
-현재 Backend API Contract가 Freeze되지 않았다.
+2026-08-29 기준 디자이너와 Backend가 공통으로 사용할 스크롤형 Handoff 문서를 작성했다.
 
-Frontend 담당과 추후 확정할 내용:
+확정된 UX:
 
-- Profile Input Schema
+- AI모드 / 지원사업 / 마이페이지 / 로그인 / 회원가입 IA
+- 일반모드 / 집중모드
+- 일반모드 자동 진입
+- 집중모드 최초 구조화 입력
+- GPT형 대화 답변
+- 지원사업 카드 공고 이미지 영역
+- 지원사업 상세 ↔ AI 채팅 연결
+- 매출장표 분석 진입점
+- 소득 안정성 주의사항
+
+아직 Freeze가 필요한 API Contract:
+
+- Focus Profile Input Schema
+- Chat Request / Response Schema
 - Program Result Schema
-- Match Status
-- Evidence 표시 방식
-- Risk Input Schema
-- Risk Result Schema
-- AI Explanation Response
+- Match/Evidence Schema
+- Risk Input/Result Schema
+- Income Stability Input/Result Schema
 - Error Response
-
+- Program Detail → Chat Context 전달 방식
 
 # 17. Infrastructure Status
 
@@ -587,7 +563,7 @@ NOT DECIDED
 - [x] Secret을 환경변수로 관리하는 원칙 정의
 - [x] `.gitignore` 생성 및 기본 제외 규칙 검증
 - [x] `.venv/` Git 제외 설정
-- [x] `.env.example` 생성
+- [ ] `.env.example` 생성
 - [ ] 운영 Secret 관리 방식 확정
 - [ ] 금융정보 Logging 정책 구현
 
@@ -603,34 +579,6 @@ NOT DECIDED
 현재 자동화 Test:
 
 NONE
-
-### Collector Execution Verification
-
-- [x] 금융, 창업, 경영 분야 실제 API 호출 성공
-- [x] 3개 요청 모두 HTTP 200
-- [x] Collector Exit Code 0
-- [x] Raw JSON 총 273건 저장
-- [x] `data/raw/` Git 제외 확인
-
-위 결과는 Data Verification Script의 실행 검증이며 Backend API 자동화 테스트가 아니다.
-
-### Analyzer Execution Verification
-
-- [x] Raw Sample 273건 전체 분석
-- [x] `pblancId` 고유 273건 / 중복 0건 확인
-- [x] Field / Eligibility Review Candidate / 신청기간 / 금액 표현 Profile 산출
-
-위 결과도 자동 후보 분석 실행 검증이며 Human Label 정확도 평가나 Backend API 자동화 테스트가 아니다.
-
-### Review Pack Evaluation Execution Verification
-
-- [x] Human Review Pack 48건 / 고유 `review_id` 48건 확인
-- [x] Human Label 분포 확인 — Supported 30 / False Positive 9 / Not Present 9 / Ambiguous 0
-- [x] Baseline confusion matrix 확인 — TP 27 / FP 9 / TN 9 / FN 3
-- [x] FP 9건 / FN 3건 failure case 추출
-- [x] 동일 실행 결과 재현성 확인
-
-위 결과는 AI-assisted human-reviewed stratified Review Pack 내부 baseline 평가이며 전체 273건 성능 평가나 Backend API 자동화 테스트가 아니다.
 
 추후 최소 테스트 대상:
 
@@ -648,24 +596,7 @@ NONE
 
 Status:
 
-BASELINE REVIEW-PACK EVALUATION COMPLETED
-
-Evaluation Set Type: AI-assisted human-reviewed evaluation set
-
-Result:
-
-- Total 48 / Scored 48 / Ambiguous 0
-- TP 27 / FP 9 / TN 9 / FN 3
-- Candidate Precision Proxy 75.00%
-- Review-Pack Negative Control False Negative Rate 25.00%
-
-Methodology Limitation:
-
-- 12 condition type x (3 `REGEX_CANDIDATE` + 1 `NEGATIVE_CONTROL`)
-- 독립 무작위 표본이 아님
-- 전체 273건 precision / recall / accuracy로 일반화하지 않음
-- 조건별 표본은 각각 4건이므로 0% / 100% 결과를 일반화하지 않음
-- 독립 금융전문가 Gold Standard가 아님
+NOT STARTED
 
 향후 Evaluation Set 후보:
 
@@ -746,63 +677,110 @@ Mitigation:
 Architecture Freeze 이후 Core Backend부터 빠르게 구현한다.
 
 
+
+## R6. UI Contract와 Backend Scope 불일치
+
+Handoff에는 화면 요구사항이 많지만 Backend 구현 시간이 짧다.
+
+Mitigation:
+
+- 화면에 필요한 최소 필드부터 Freeze
+- Structured Result + AI Reply 중심
+- 부가 기능보다 핵심 경로 우선
+- 디자이너 UI 톤을 갈아엎지 않음
+
+
+## R7. Demo와 실제 구현 혼동
+
+매출장표 분석을 일정 부족 시 Demo로 보여줄 수 있으나 실제 분석처럼 보이면 제출 문서와 서비스 신뢰성에 문제가 생긴다.
+
+Mitigation:
+
+- `DEMO SAMPLE` 명시
+- 샘플 입력/결과와 실제 Backend 분석 분리
+- 공식 기능명세서에는 실제 검증 완료 범위만 작성
+
 # 22. Current Blockers
 
-현재 즉시 개발을 막는 핵심 미확정 사항:
+Core Implementation 시작 전에 빠르게 Freeze해야 하는 항목:
 
-1. Eligibility Schema 최종 형태
-2. Policy Loan 공식 Source
-3. Risk Calculation Formula
-4. User Profile 최소 입력
-5. Backend Technology Stack
-6. Frontend API Contract
+1. MVP용 최소 Eligibility Schema
+2. Focus Mode 최소 Profile Input
+3. 핵심 Risk Calculation Formula
+4. Backend Technology Stack
+5. Database / Local Snapshot 저장 방식
+6. `/chat` 중심 API Contract
+7. Backend Hosting / Public 배포 방식
 
+[RECOMMENDATION] Core 구현의 필수 선행조건에서 제외할 항목:
+
+- K-Startup 실측 완료
+- 상권 데이터
+- 범용 CSV/Excel Parser
+- Vector DB
+- Graph DB
+- Multi-Agent
+
+정책자금 공식 Source가 일정 내 확보되지 않으면 임의 데이터를 만들지 않고 확보 범위만 사용한다.
 
 # 23. Immediate Next Tasks
 
-우선순위 순서:
+[RECOMMENDATION — 2026-08-29]
 
-## P0
+2026-09-03~04 내부 완료 목표 기준 우선순위.
 
-1. Human Evidence와 failure mode 기반 Eligibility Schema v0.1 Draft 작성
-2. 부정·배제, 단위, 문맥 및 Evidence 보존 규칙 반영
-3. 48건 Review Pack으로 Schema 표현 가능성 검토
+## P0 — 오늘 바로 Freeze / Scaffold
 
-## P1
+1. `FINANCE_AI_GROUND_TRUTH.md` 08-29 반영
+2. `FINANCE_AI_MVP_SCOPE.md` 08-29 반영
+3. `FINANCE_AI_ARCHITECTURE.md` 08-29 반영
+4. UI/Backend Handoff를 API Contract 기준으로 사용
+5. 최소 Profile / Eligibility Schema 확정
+6. Risk Calculation 최소 공식 확정
+7. Backend Framework / DB / Hosting 결정
+8. Backend Scaffold + `/health`
 
-4. 정책자금 공식 Source 검증
-5. K-Startup 실측 검증
-6. 리스크 계산식 확정
+## P1 — Core User Flow
 
-## P2
+9. 기업마당 Snapshot/DB 적재 및 Normalization
+10. Program Retrieval
+11. Deterministic Matching
+12. Evidence Response
+13. Risk Calculation
+14. `/chat` AI Integration + Fallback
+15. 지원사업 상세 ↔ `program_id` Chat Context
 
-7. User Profile Schema 확정
-8. Architecture Freeze
-9. Backend Technology Stack 결정
-10. API Contract 결정
+## P2 — 유형별 기능 / 배포
 
-## P3
+16. 프리랜서 소득 안정성 간이 계산
+17. 매출장표 실제 분석 구현 가능 여부 판단
+18. 실제 분석 미완성 시 `DEMO SAMPLE` Fallback 적용
+19. Frontend Integration
+20. Public Deployment
 
-11. Backend Scaffold
-12. 운영 Data Collector
-13. Normalizer
-14. Database
-15. Matching Engine
-16. Calculation Engine
-17. LLM Integration
+## P3 — QA
 
+21. 정상/오류/경계값 테스트
+22. LLM/API Failure Fallback
+23. 모바일 웹 주요 화면 점검
+24. Public URL 재접속 / Restart Recovery
+25. 기능 구현 상태 기준 공식 기능명세서 작성 준비
+
+K-Startup, 상권, Vector Retrieval 등은 Core 완료 후 시간이 남을 때만 검토한다.
 
 # 24. Current Completion Snapshot
 
 Documentation:
 
 ```text
-AGENTS                       DONE
-GROUND_TRUTH                 DONE
-MVP_SCOPE                    DONE
-DATA_SOURCES                 DONE
-ARCHITECTURE                 DONE
-DEV_STATUS                   DONE
+Service Name FinBridge       LOCKED
+UI/Backend Handoff           DRAFTED
+AGENTS                       UPDATED 2026-08-29
+GROUND_TRUTH                 UPDATED 2026-08-29
+MVP_SCOPE                    UPDATED 2026-08-29
+DATA_SOURCES                 UPDATED 2026-08-29
+ARCHITECTURE                 UPDATED 2026-08-29
+DEV_STATUS                   UPDATED 2026-08-29
 ```
 
 Data:
@@ -814,13 +792,7 @@ Bizinfo API Call             DONE
 Bizinfo 20 Sample            DONE
 Bizinfo Raw JSON             DONE
 Bizinfo Schema Check         DONE
-Bizinfo Sample Collector     VERIFIED
-Bizinfo Large Sample         DONE (273 items)
-Bizinfo Sample Analyzer      DONE (273 items)
-Eligibility Candidate Profile DONE (automated)
-Human Review Pack            DONE (48 labeled rows)
-Baseline Review Evaluation  DONE (27/9/9/3)
-Eligibility Schema v0.1      TODO
+Bizinfo Large Sample         TODO
 K-Startup API                TODO
 Policy Loan Data             TODO
 ```

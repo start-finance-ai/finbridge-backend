@@ -1,11 +1,28 @@
-# 2026 금융 AI Challenge 기획서 — AI / Backend / Data / Infra 담당 초안 v2
+# 2026 금융 AI Challenge 기획서 — AI / Backend / Data / Infra 담당 초안 v3
 
 > **담당:** AI / Backend / Data / Infra Lead
-> **작성 기준:** 팀 최신 기획서 + 공식 기획서/기능명세서 양식 + 2026-08-28 기준 실제 데이터 검증 결과
+> **작성 기준:** 팀 최신 기획서 + 공식 기획서/기능명세서 양식 + 2026-08-29 팀 회의 결정 + 2026-08-28 실제 데이터 검증 결과
 > **용도:** 팀원별 기획서 초안 통합용
 > **상태 기준:** 구현 완료 여부는 `FINANCE_AI_DEV_STATUS.md`를 우선하며, 본 문서의 설계 내용이 곧 구현 완료를 의미하지 않는다.
 
 ---
+
+## 0. 2026-08-29 팀 확정사항 반영
+
+[TEAM DECISION]
+
+- 팀명: `start`
+- 공식 서비스명: `FinBridge`
+- Backend 구축·배포, 디자인, QA를 2026-09-03~04까지 내부 완료하는 것을 목표로 한다.
+- 기존 디자이너 UI의 전체 톤앤매너를 유지하면서 Backend가 필요한 정보 구조만 추가한다.
+- AI모드는 `일반모드 / 집중모드`로 구성한다.
+- 모드 미선택 상태에서 바로 채팅을 입력하면 일반모드로 시작한다.
+- 집중모드는 첫 대화 전 구조화된 조건을 상대적으로 세밀하게 받고, 이후에는 자연어 채팅으로 이어간다.
+- AI 답변은 GPT/Claude와 유사한 텍스트 대화 형식으로 제공한다.
+- 조건 충족/추가 확인/판단 불가 등은 Backend의 structured result로 유지하되 사용자에게는 대화형 문장으로 설명한다.
+- 지원사업 리스트 카드에 공고 이미지 영역을 추가하되 공고 이미지는 Evidence가 아니다.
+- 매출장표 분석은 Public URL에 진입점을 유지하며, 실제 분석이 일정 내 미완성일 경우 `DEMO SAMPLE`을 명확히 표시한다.
+- 프리랜서 소득 안정성은 간이 deterministic 분석으로 제공하고 회색 주의사항을 표시한다.
 
 ## 2. 아이디어 기획 핵심내용(요약) — 기술 관점 보완안
 
@@ -13,6 +30,7 @@
 - 지원사업을 단순히 키워드로 검색하거나 LLM이 임의 추천하지 않고, **실제 공고 데이터 → 자격조건 구조화 → 사용자 조건과 Matching → Evidence 확인**의 흐름으로 처리한다. `[TEAM DECISION]`
 - 사용자가 입력한 초기비용·매출·지출·대출조건 등을 바탕으로 **현금흐름, 버틸 수 있는 기간, 사업 악화·폐업 가정 시 잔존채무 등 금융·리스크 지표를 Backend에서 결정론적으로 계산**하고, 생성형 AI는 검증된 계산 결과를 사용자가 이해하기 쉬운 언어로 설명한다. `[TEAM DECISION]`
 - 생성형 AI는 금융정보를 직접 만들어내는 역할이 아니라, **비정형 공고의 복잡한 조건을 구조화하고, 검증된 검색·Matching·계산 결과를 종합해 설명하는 역할**에 집중한다. `[TEAM DECISION]`
+- 사용자 경험은 **일반모드(자연어 중심) / 집중모드(첫 대화 전 구조화 입력)**로 분리하며, 내부 structured result를 GPT형 대화 답변으로 설명한다. `[TEAM DECISION — 2026-08-29]`
 
 ---
 
@@ -252,18 +270,42 @@ Source:
 
 ### 5-5. CSV / Excel 데이터
 
-Status: `OPTIONAL`
+Status: `OPTIONAL — 실제 Backend 분석 / UI 진입점은 유지`
 
-현재 팀 기획에는 매출장표 CSV/Excel 업로드가 포함되어 있으나 예선 MVP MUST 기능으로 확정하지 않는다.
+[TEAM DECISION — 2026-08-29]
 
-구현할 경우 임의의 모든 회계 파일을 처리하려 하지 않고 팀이 정의한 Sample Schema부터 지원한다.
+소상공인 매출장표 분석은 Public URL에서 사용자가 진입할 수 있도록 유지한다.
+
+실제 CSV/Excel 업로드·분석은 핵심 Matching, Risk, AI, 배포가 안정적으로 완성된 뒤 일정 내 구현한다.
+
+구현할 경우 임의의 모든 회계 파일을 처리하지 않고 팀이 정의한 Sample Schema부터 지원한다.
+
+2026-09-03~04까지 실제 분석을 안정적으로 완성하지 못하면:
+
+- `DEMO SAMPLE` 라벨을 명확히 표시
+- 샘플 입력/결과임을 사용자에게 고지
+- 실제 업로드 분석 또는 실제 AI 분석으로 표현하지 않음
+- 공식 기능명세서에는 실제 검증된 범위만 작성
+
+### 5-5-1. 프리랜서 소득 안정성
+
+Status: `PLANNED — 간이 deterministic 분석`
+
+기간별 소득 입력을 기반으로 설명 가능한 간이 안정성 지표를 계산한다.
+
+금융기관 수준의 신용평가로 표현하지 않으며, UI에는 결과의 한계를 알리는 작은 회색 안내문을 표시한다.
+
+최종 계산식은 구현·테스트 후 확정한다.
 
 ### 5-6. 생성형 AI의 역할
 
 생성형 AI는 다음 역할에 우선 활용한다. `[TEAM DECISION]`
 
-#### A. 자연어 이해
-- 사용자의 자연어 질문 의도 파악
+#### A. 자연어 이해 / Interaction Mode
+- 일반모드: 사용자의 자연어 질문 의도 파악
+- 모드 미선택 상태의 직접 입력은 일반모드로 처리
+- 집중모드: 첫 대화 전 구조화 Profile 입력을 받고 이후 자연어 대화로 전환
+- 일반모드에서 구조화 입력이 필요한 시점에 집중모드 전환 제안
 - 필요한 조건 파악
 - 추가 정보가 필요한 경우 질문 생성
 
@@ -503,6 +545,7 @@ LLM 장애:
 - 실제 Response Schema 확인
 - 기업마당 데이터의 정형/비정형 Eligibility 구조 확인
 - Backend Ground Truth / MVP Scope / Data Sources / Architecture / Development Status 문서 작성
+- FinBridge UI/Backend 디자인 핸드오프 Draft 작성
 
 아직 구현되지 않음:
 
@@ -530,7 +573,7 @@ LLM 장애:
 - [ ] 사용자 Profile 최소 입력값
 - [ ] 정책자금 공식 Data Source
 - [ ] 재무·리스크 계산식
-- [ ] CSV / Excel 지원 범위
+- [ ] CSV / Excel 실제 업로드·분석 지원 범위 (UI 진입점 및 Demo Fallback 원칙은 확정)
 - [ ] 사용자 금융 데이터 저장 방식
 - [ ] Backend Hosting
 - [ ] Database Hosting
@@ -538,19 +581,30 @@ LLM 장애:
 
 ---
 
-## 다음 검증 순서
+## 다음 구현·검증 순서
 
-1. 기업마당 창업·금융·경영 Sample 확대
-2. Eligibility 조건 유형 분석
-3. Eligibility Schema 정확도 검증
-4. K-Startup 보완 가치 검증
-5. 정책자금 공식 Source 검증
-6. 리스크 계산식 금융 도메인 검증
-7. 사용자 Profile 최소 Schema 확정
-8. Architecture Freeze
-9. Backend 구현 시작
+[RECOMMENDATION — 2026-08-29]
 
----
+2026-09-03~04 내부 완료 목표를 기준으로 다음 순서를 권장한다.
+
+1. UI/Backend Handoff 기준 최소 API Contract Freeze
+2. Focus Profile 최소 Schema 확정
+3. Eligibility 최소 Schema 확정
+4. 리스크 계산식 확정
+5. Backend Framework / DB / Hosting 결정
+6. Backend Scaffold + Health Check
+7. 기업마당 Retrieval / Normalization
+8. Deterministic Matching + Evidence
+9. Risk Calculation
+10. AI Chat Integration + Fallback
+11. 지원사업 상세 ↔ Chat Context
+12. 소득 안정성 간이 분석
+13. 매출장표 실제 분석 가능 여부 판단 / Demo Fallback 준비
+14. Frontend Integration
+15. Public Deployment
+16. QA / Evaluation
+
+K-Startup·상권·Vector DB 등은 Core 사용자 흐름 완성 이후 시간이 남을 때만 검토한다.
 
 ## 본인 담당 구현 범위 요약
 

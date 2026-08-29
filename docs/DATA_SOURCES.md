@@ -1,6 +1,6 @@
 # FINANCE AI — Data Sources
 
-Last Updated: 2026-08-28
+Last Updated: 2026-08-29
 
 이 문서는 2026 금융 AI Challenge MVP에서 실제로 사용할 외부 데이터와 사용자 입력 데이터의 검증 상태를 관리한다.
 
@@ -174,128 +174,6 @@ Raw Data:
 
 Raw 데이터는 가공 전 원본 Snapshot으로 유지한다.
 
-### Sample Expansion Result — 2026-08-28
-
-[EXPERIMENT]
-
-`scripts/collect_bizinfo_samples.py`를 실제 실행하여 금융, 창업, 경영 분야의 Sample 확대를 완료했다.
-
-* Collector Exit Code: 0
-* 전체 HTTP Status: 200
-* 요청 `searchCnt`: 분야별 100
-* 실제 수집 Item: 총 273건
-
-| 지원분야 | `searchLclasId` | 실제 Item | `totCnt` | Raw Evidence |
-| --- | --- | ---: | ---: | --- |
-| 금융 | 01 | 100 | 220 | `data/raw/bizinfo/bizinfo_finance_sample.json` |
-| 창업 | 06 | 73 | 73 | `data/raw/bizinfo/bizinfo_startup_sample_100.json` |
-| 경영 | 07 | 100 | 461 | `data/raw/bizinfo/bizinfo_management_sample.json` |
-
-창업 분야는 `searchCnt=100`으로 요청했으나 전체 결과가 73건이므로 73건 수집은 정상이다.
-
-세 파일은 API Response Body를 재직렬화하지 않은 Raw Evidence로 저장했으며 `data/raw/` Git 제외 규칙의 적용을 확인했다.
-
-### Full 273-Item Automated Profile Result — 2026-08-28
-
-[EXPERIMENT / AUTOMATED REVIEW CANDIDATE]
-
-`scripts/analyze_bizinfo_samples.py`로 금융, 창업, 경영 Raw Sample 273건 전체를 자동 분석했다.
-
-* 전체 Item: 273건
-* 고유 `pblancId`: 273건
-* 중복 `pblancId`: 0건
-* 전체 발견 Field: 22개
-* 기본 Field: 19개 모두 273/273 non-empty (100%)
-
-Optional Field의 전체 출현 및 non-empty 결과:
-
-| Field | non-empty | 출현율 |
-| --- | ---: | ---: |
-| `fileNm` | 185/273 | 67.77% |
-| `flpthNm` | 185/273 | 67.77% |
-| `rceptEngnHmpgUrl` | 128/273 | 46.89% |
-
-따라서 위 세 Field는 전체 273건 실측 기준으로도 Optional Field로 다뤄야 한다.
-
-### Eligibility Review Candidate Profile
-
-아래 수치는 정규식 기반 자동 탐지 결과이며, 사람이 공고 문맥을 판정한 실제 Eligibility 확정 건수가 아니다.
-
-| 조건 유형 | Review Candidate | 비고 |
-| --- | ---: | --- |
-| 지역 / 소재지 | 232 | 기관명, 사업명, 지원 지역 소개 등 false positive 가능 |
-| 연령 | 24 | 연령 관련 표현 후보 |
-| 명시적 숫자 연령 | 19 | 숫자가 있어도 자격 범위인지 Human Review 필요 |
-| 예비창업 여부 | 29 | 대상 소개와 명시 조건 구분 필요 |
-| 사업자 여부 | 91 | 등록·보유·폐업 등 문맥 구분 필요 |
-| 사업 업력 | 62 | 업력 기준과 일반 창업 연차 표현 구분 필요 |
-| 업종 | 69 | 지원 분야 소개와 제한 업종 구분 필요 |
-| 중소기업 / 소상공인 등 사업자 유형 | 220 | coarse 대상 표현 포함 가능 |
-| 매출 / 소득 | 16 | 기준·제출서류·사업 설명 구분 필요 |
-| 직원 수 | 6 | 자격 기준인지 설명 문구인지 확인 필요 |
-| 성별 | 7 | 자격 조건과 사업명·대상 분류 구분 필요 |
-| 특정 자격 / 인증 | 14 | 필수 자격과 우대·사업 설명 구분 필요 |
-| 교육 이수 | 5 | 필수·사후 이수·권고 구분 필요 |
-| 추천 / 선정 / 평가 조건 | 7 | 신청 전제와 선발 절차 구분 필요 |
-
-`hashtags`는 이 Eligibility Review Candidate 탐지 및 Evidence에서 제외했다. 자동 후보 분석은 전체 273건에 대해 완료했으며, 아래 Human Review Pack으로 baseline의 과탐·미탐을 별도 검토했다. Eligibility Schema는 아직 확정하지 않았다.
-
-### Human-reviewed Review Pack and Baseline Evaluation — 2026-08-28
-
-[EXPERIMENT]
-
-12개 Eligibility condition type을 대상으로 `REGEX_CANDIDATE` 3건과 `NEGATIVE_CONTROL` 1건씩 선정한 48건의 Human-reviewed Review Pack을 생성하고 검토했다.
-
-이 Label Set은 AI가 원문 판독을 보조하고 사용자가 검토 결과를 반영한 **AI-assisted human-reviewed evaluation set**이다. 독립 금융전문가가 검증한 Gold Standard가 아니다.
-
-Sampling 구조:
-
-* Condition type: 12개
-* Condition별 `REGEX_CANDIDATE`: 3건
-* Condition별 `NEGATIVE_CONTROL`: 1건
-* 전체 Row: 48건
-* 단순 무작위 독립 Evaluation Set이 아닌 stratified Review Pack
-
-Human Label 분포:
-
-| Human Label | 건수 |
-| --- | ---: |
-| `SUPPORTED_CANDIDATE` | 30 |
-| `FALSE_POSITIVE` | 9 |
-| `NOT_PRESENT` | 9 |
-| `AMBIGUOUS` | 0 |
-
-Baseline Review-Pack confusion matrix:
-
-| Prediction / Actual | actual positive | actual negative |
-| --- | ---: | ---: |
-| predicted positive (`REGEX_CANDIDATE`) | TP 27 | FP 9 |
-| predicted negative (`NEGATIVE_CONTROL`) | FN 3 | TN 9 |
-
-* Total: 48
-* Scored: 48
-* Ambiguous: 0
-* `candidate_precision_proxy`: 27 / 36 = 75.00%
-* `review_pack_negative_control_false_negative_rate`: 3 / 12 = 25.00%
-
-위 두 지표는 의도적으로 구성한 Review Pack 내부 baseline 진단값이다. 전체 273건의 정식 precision, recall 또는 accuracy로 해석하거나 일반화하지 않는다. Condition별 표본도 4건뿐이므로 개별 조건의 0% 또는 100% 결과를 일반화하지 않는다.
-
-실제 Human Review에서 확인된 주요 failure mode:
-
-* 기관명·사업명의 지역명을 지역 Eligibility로 오탐
-* `21세기`를 `21세`로 오탐
-* `2026 세종`을 `26세`로 오탐
-* 사업자 미등록 신청불가 같은 부정·배제 방향 오해
-* 융자 거치·상환기간을 사업 업력으로 오탐
-* `사업경력`과 개월 단위 업력 미탐
-* 열거형 산업·제품 범주 미탐
-* `법인 제외` 같은 제외형 사업자 유형 미탐
-* 융자한도 산정용 매출액을 Eligibility 매출조건으로 오탐
-* 기관명·지원내용의 여성 표현을 성별 Eligibility로 오탐
-* 사업 수행 후 부여되는 인증을 사전 인증 조건으로 오탐
-
-이 결과는 Eligibility Schema v0.1 Draft의 Evidence로 사용할 수 있지만, 이 실험만으로 Schema를 확정하지 않는다.
-
 ## Confirmed JSON Structure
 
 실제 응답은 다음 구조로 확인되었다.
@@ -381,7 +259,7 @@ jsonArray
 
 ## Important Finding 2 — `trgetNm`의 한계
 
-`trgetNm`은 전체 273건에서 고유 값이 7개뿐인 비교적 큰 범주로 제공되었다.
+`trgetNm`은 실제 Sample에서 다음과 같은 비교적 큰 범주로 제공되었다.
 
 예:
 
@@ -452,18 +330,6 @@ hashtags에 "경기" 포함
 
 `reqstBeginEndDe`는 항상 동일한 날짜 형식으로 제공되지 않는다.
 
-전체 273건 자동 분류 결과:
-
-| 패턴 | 건수 |
-| --- | ---: |
-| 명확한 시작일 / 종료일 | 146 |
-| 예산 소진 시까지 | 97 |
-| 상시 / 수시 | 14 |
-| 별도 공지 / 공고문 참고 | 3 |
-| 차수 / 분야 / 세부사업별 상이 | 4 |
-| 기타 비정형 | 9 |
-| 결측 | 0 |
-
 실제 확인된 예:
 
 ```text
@@ -507,14 +373,6 @@ apply_end DATE
 ## Important Finding 6 — 지원금액
 
 지원금액도 별도 정형 필드로 일관되게 제공되지 않고 `bsnsSumryCn` 안에 자연어로 포함되는 사례가 확인되었다.
-
-전체 273건 자동 분석에서 서로 다른 세 지표가 확인되었다.
-
-* 금액 / 한도 Keyword Review Candidate: 127건
-* 실제 금액 표현 탐지: 115건
-* 지원·융자·대출·보증 등 지원 문맥을 함께 가진 금액 Review Candidate: 111건
-
-위 수치는 탐지 목적과 범위가 다르므로 서로 같은 지표로 해석하지 않는다. 특히 금액 표현 탐지는 실제 지원금액 Eligibility 또는 지급액의 확정을 의미하지 않는다.
 
 실제 Sample에서 다음 형태가 존재한다.
 
@@ -640,16 +498,9 @@ LLM 또는 Parser가 비정형 조건을 구조화하더라도 최종 Matching�
 * [x] 상세공고 URL 확인
 * [x] 지원 대상 관련 정보 확인
 * [x] Raw JSON Snapshot 저장
-* [x] 창업 분야 `searchCnt=100` 수집 검증 — 73건 / `totCnt` 73
-* [x] 금융 분야 Sample 검증 — 100건 / `totCnt` 220
-* [x] 경영 분야 Sample 검증 — 100건 / `totCnt` 461
-* [x] 3개 분야 Raw Sample 총 273건 저장
-* [x] 전체 273건 Field 출현율 및 결측 패턴 자동 분석
-* [x] 전체 273건 Eligibility Review Candidate 자동 분석
-* [x] 전체 273건 신청기간 패턴 자동 분류
-* [x] 전체 273건 금액 표현 및 지원 문맥 후보 자동 분석
-* [x] Human Review Pack 48건 선정 및 Labeling
-* [x] Baseline Review-Pack Evaluation 완료 — TP 27 / FP 9 / TN 9 / FN 3
+* [ ] 창업 분야 Sample 100건 이상 추가 검증
+* [ ] 금융 분야 Sample 검증
+* [ ] 경영 분야 Sample 검증
 * [ ] 업종 조건 구조화 가능성 정량 검증
 * [ ] 지역 조건 구조화 정확도 검증
 * [ ] Eligibility Extraction Schema 확정
@@ -936,7 +787,7 @@ Source:
 
 Status: PLANNED
 
-현재 초기 후보:
+현재 기본 후보:
 
 * `user_type`
 * `region`
@@ -953,23 +804,33 @@ Status: PLANNED
 * certificate
 * education_completion
 
-다만 사용자에게 모든 항목을 처음부터 입력받지 않는다.
-
 ## Profile Design Rule
 
-최종 Profile Schema는 실제 지원사업 Eligibility Schema를 기준으로 설계한다.
+[TEAM DECISION — 2026-08-29]
+
+모든 정보를 회원가입 또는 첫 화면에서 일괄 요구하지 않는다.
+
+### 일반모드
+
+```text
+자연어 질문
+→ 현재 문장에서 확보 가능한 조건 추출
+→ 후보 지원사업 탐색
+→ 부족한 조건만 추가 질문
+```
+
+### 집중모드
+
+```text
+첫 대화 전 최소 구조화 Profile 입력
+→ 후보 지원사업 탐색
+→ 필요한 경우 추가 질문
+→ 이후 자연어 대화
+```
+
+집중모드의 체크·선택 필드는 실제 Eligibility Schema와 MVP 구현량을 기준으로 최소화한다.
 
 사용자에게 불필요한 금융정보나 개인정보를 과도하게 입력받지 않는다.
-
-권장 방향:
-
-기본 Profile
-
-→ 지원사업 후보 검색
-
-→ 실제 후보 공고에서 필요한 조건만 추가 질문
-
-즉 Adaptive Question 방식도 검토한다.
 
 # 9. User Financial Input
 
@@ -1008,13 +869,24 @@ UI 편의를 위해 필요하지 않은 값을 먼저 추가하지 않는다.
 
 # 10. CSV / Excel Financial Data
 
-Status: OPTIONAL
+Status: OPTIONAL — Backend actual analysis
 
-현재 기획에는 매출장표 CSV / Excel 업로드가 포함되어 있으나 MVP MUST 기능은 아니다.
+[TEAM DECISION — 2026-08-29]
+
+소상공인용 매출장표 분석의 **UI 진입점은 Public MVP에서 유지**한다.
+
+다만 실제 CSV/Excel 업로드·분석 Backend는 핵심 Matching/리스크/AI/배포보다 후순위다.
 
 실제 구현할 경우 임의의 모든 회계파일 형식을 지원하려 하지 않는다.
 
-MVP에서는 서비스가 정의한 Sample Schema만 지원하는 방안을 우선 검토한다.
+MVP에서는 서비스가 정의한 Sample Schema만 지원하는 방안을 우선한다.
+
+실제 분석이 2026-09-03~04 내부 완료 목표까지 안정적으로 구현되지 않으면:
+
+- 사용자가 업로드한 파일을 분석한 것처럼 가장하지 않는다.
+- `DEMO SAMPLE`이라고 명확히 표시한 샘플 데이터·샘플 결과만 UI Fallback으로 사용한다.
+- 샘플 데이터는 실제 외부 금융 데이터 또는 실제 사용자 분석 결과로 취급하지 않는다.
+- 공식 기능명세서에는 검증 완료된 실제 동작 범위만 기재한다.
 
 ## Required Verification
 
@@ -1027,10 +899,40 @@ MVP에서는 서비스가 정의한 Sample Schema만 지원하는 방안을 우�
 * [ ] 파일 저장 여부 결정
 * [ ] 파일 삭제 정책 결정
 * [ ] 잘못된 파일 형식 처리 정의
+* [ ] Demo Fallback 사용 시 `DEMO SAMPLE` 라벨 확인
 
 ## MVP Priority
 
-P3 — MUST 기능 이후
+P3 — 실제 업로드·분석 Backend
+
+UI 진입점은 MVP 화면 범위에서 유지.
+
+## 10.1 Freelancer Income Stability Input
+
+Source:
+
+사용자 직접 입력
+
+Status: PLANNED
+
+[TEAM DECISION — 2026-08-29]
+
+프리랜서 소득 안정성은 MVP에서 구현 가능한 간이 지표로 제공하는 방향이다.
+
+현재 입력 후보:
+
+* 기간별 소득 금액
+* 기간 정보
+
+정확한 기간 단위, 최소 입력 개수, 안정성 계산식은 아직 확정되지 않았다.
+
+원칙:
+
+* 계산은 deterministic code 우선
+* 결측값을 임의 보간하지 않음
+* 금융기관 신용평가 또는 대출 승인 가능성으로 오인시키지 않음
+* UI에 작은 회색 주의사항 표시
+* 계산식과 가정을 최종 구현 시 문서화
 
 # 11. Data Source Priority
 
@@ -1069,7 +971,7 @@ K-Startup Open API 검증
 
 상권정보
 
-CSV / Excel 분석
+CSV / Excel 실제 업로드·분석
 
 기타 확장 데이터
 
@@ -1345,27 +1247,30 @@ LLM
 
 # 17. Next Data Verification
 
-DS-001의 최초 API 접근, 기본 Schema 확인, 3개 분야 Sample 확대, 273건 전체 자동 후보 분석 및 48건 Human Review Pack baseline 평가를 완료했다.
+DS-001의 최초 API 접근 및 Schema 확인은 완료되었다.
 
 따라서 다음 검증 순서는 다음과 같다.
 
-## Step 1 — Human Review Sample 선정 및 Labeling — COMPLETED
+## Step 1 — 기업마당 Sample 확대
 
 목표:
 
-* 12개 condition type별 4건, 총 48건 Review Pack 검토
-* TP 27 / FP 9 / TN 9 / FN 3 확인
-* 과탐·미탐 failure mode 및 Human Evidence 기록
-* 전체 273건 모집단 성능이 아닌 Review-Pack 내부 baseline으로 한정
+* 창업 분야 100건 이상 Sample 확보
+* 금융 분야 Sample 확보
+* 경영 분야 Sample 확보
+* 다양한 지역 공고 확보
+* 다양한 지원대상 공고 확보
 
 확인할 항목:
 
-* 지역, 연령, 업력, 사업자 여부, 업종 등 주요 조건
-* `trgetNm` coarse target과 세부 Eligibility의 차이
-* 자동 탐지 누락 및 과탐 사례
-* 부정·배제, 단위, 기관명, 지원내용과 자격조건의 문맥 차이
+* Eligibility 조건 종류
+* 결측 패턴
+* 날짜 표현 방식
+* 지원금액 표현 방식
+* HTML 제거 필요성
+* 중복 공고 존재 여부
 
-## Step 2 — Eligibility Schema v0.1 Draft 및 검증
+## Step 2 — Eligibility Schema 검증
 
 최소 30~50개 공고를 직접 확인하여
 
@@ -1420,6 +1325,25 @@ K-Startup 추가가 Matching 정확도를 실제로 높이는 경우에만 MVP�
 
 데이터 구조가 확정되기 전에 과도한 Vector DB, Graph DB 또는 Multi-Agent 구조를 먼저 도입하지 않는다.
 
+# 17.5 2026-08-29 Schedule-Driven Data Rule
+
+[CURRENT DATA DECISION + RECOMMENDATION — 2026-08-29]
+
+- DS-001 기업마당 지원사업정보 API는 이미 `VERIFIED`이며 MVP Main Source로 유지한다.
+- [RECOMMENDATION] 2026-09-03~04 내부 개발 완료 목표를 고려해 K-Startup, 상권정보, 추가 지자체 Source 등은 **핵심 구현을 지연시키는 선행조건으로 두지 않는다.**
+- 추가 Source는 실제 Matching 정확도 또는 Coverage 개선이 즉시 검증될 때만 포함한다.
+- 현재 최우선은 Source 수 확대가 아니라 FinBridge의 한 개 완성된 사용자 흐름이다.
+
+```text
+기업마당 실제 데이터
+→ 최소 Normalization
+→ Eligibility 구조화
+→ Deterministic Matching
+→ Evidence
+→ AI 설명
+→ Public URL
+```
+
 # 18. Current Data Decision Summary
 
 [TEAM DECISION / CURRENT]
@@ -1452,7 +1376,11 @@ K-Startup은 기업마당의 Eligibility 정보를 실질적으로 보완하는�
 
 ### CSV / Excel
 
-Optional
+실제 업로드·분석 Backend는 Optional/P3. 다만 매출장표 분석 UI 진입점은 2026-08-29 팀 결정에 따라 Public MVP에서 유지하며, 미완성 시 `DEMO SAMPLE`을 명확히 표시한다.
+
+### Freelancer Income Stability
+
+사용자 직접 입력 기반 간이 deterministic 분석을 MVP 목표로 하며, 최종 계산식은 구현·검증 후 Freeze한다.
 
 현재 최우선 과제는 데이터 Source 수를 늘리는 것이 아니라
 

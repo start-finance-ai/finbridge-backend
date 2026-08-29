@@ -20,6 +20,29 @@
 예선 제출용 MVP는 실제 Public URL에서 핵심 기능이 작동해야 한다.
 
 
+## 0.1 Current Project Lock — 2026-08-29
+
+현재 확정된 운영 기준:
+
+- 팀명: `start`
+- 공식 서비스명: `FinBridge`
+- Backend 구축·배포, 디자인, QA 내부 완료 목표: `2026-09-03~04`
+- 팀 공유 제출 일정: `2026-09-07 오전` — 최종 제출 전 공식 공지 재확인
+
+현재 UX Contract:
+
+```text
+AI모드
+├─ 일반모드: 자연어 중심, 미선택 후 바로 입력하면 자동 진입
+└─ 집중모드: 첫 대화 전 구조화 입력, 이후 자연어 대화
+```
+
+AI 답변은 GPT/Claude형 대화 UI를 사용하되 Backend의 structured matching/evidence를 근거로 한다.
+
+매출장표 분석은 Public URL에서 진입 가능해야 한다. 실제 분석이 일정 내 미완성일 경우 `DEMO SAMPLE`임을 명확히 표시하고 실제 분석으로 표현하지 않는다.
+
+프리랜서 소득 안정성은 간이 deterministic 지표로 구현하고 UI에 결과 한계 안내를 둔다.
+
 ## 1. Source of Truth Priority
 
 개발 판단이 충돌할 경우 다음 순서를 따른다.
@@ -92,6 +115,26 @@ Question / User Profile / Financial Input
 
 → Final Response + Evidence + Source
 
+
+## 3.1 UI / Backend Contract
+
+Frontend 또는 Backend를 구현하기 전에 다음 Handoff를 함께 확인한다.
+
+```text
+docs/design/0829_FinBridge_UI_Backend_연동_디자인핸드오프_v1.md
+```
+
+이 Handoff는 Ground Truth / MVP Scope / Data Sources / Architecture보다 우선하지 않는다.
+
+충돌 시 상위 Source of Truth가 우선한다.
+
+주요 구현 규칙:
+
+- 기존 디자이너 UI의 전체 톤앤매너와 구조를 불필요하게 갈아엎지 않는다.
+- Backend가 필요한 필드·상태·CTA만 최소 추가한다.
+- 지원사업 카드의 공고 이미지는 UI asset이며 사실 검증 Evidence가 아니다.
+- 지원사업 상세에서 AI 채팅으로 이동할 때 가능하면 `program_id`를 context로 전달한다.
+- Backend는 자연어 reply 외에 structured program/match/evidence/action을 함께 반환한다.
 
 ## 4. Retrieval Rules
 
@@ -432,6 +475,7 @@ Frontend 표시 내용과 Backend 실제 동작이 일치해야 한다.
 3. `docs/DATA_SOURCES.md`
 4. `docs/FINANCE_AI_ARCHITECTURE.md`
 5. `docs/FINANCE_AI_DEV_STATUS.md`
+6. `docs/design/0829_FinBridge_UI_Backend_연동_디자인핸드오프_v1.md`
 
 문서 간 충돌이 있으면 임의로 판단하지 않는다.
 
@@ -453,17 +497,48 @@ Frontend 표시 내용과 Backend 실제 동작이 일치해야 한다.
 
 ## 21. Current Development Rule
 
-현재는 프로젝트 초기 단계다.
+2026-08-29 현재는 문서·데이터 검증만 이어가는 단계가 아니라 **Core Backend 구현으로 전환해야 하는 시점**이다.
 
-아직 확정되지 않은 다음 사항을 임의로 결정하지 않는다.
+이미 확인된 사실:
 
-- 생성형 AI 모델
-- LLM API 공급자
+- 기업마당 지원사업정보 API Main Source 최초 실측 검증 완료
+- 공식 서비스명 `FinBridge` 확정
+- 일반모드 / 집중모드 UX 확정
+- UI/Backend Handoff Draft 작성
+
+아직 빠르게 Freeze해야 하는 항목:
+
 - Backend Framework
-- Database
-- Cloud / 배포 플랫폼
-- Vector DB 사용 여부
-- 최종 재무·리스크 계산식
-- 최종 지원사업 데이터 소스
+- Database / Local Snapshot 방식
+- LLM Provider / Model
+- Backend Hosting
+- 최소 Eligibility Schema
+- Focus Profile Schema
+- Risk Calculation Formula
+- Chat/API Contract
 
-각 사항은 실제 데이터 검증과 MVP 요구사항을 확인한 뒤 확정한다.
+다음 항목은 핵심 사용자 흐름을 지연시키면서까지 선행하지 않는다.
+
+- Vector DB
+- Graph DB
+- Multi-Agent
+- 상권 데이터
+- K-Startup 추가 연동
+- 범용 CSV / Excel Parser
+
+Core 작업 순서:
+
+```text
+Schema/API 최소 Freeze
+→ Backend Scaffold
+→ 기업마당 Retrieval
+→ Deterministic Matching
+→ Risk Calculation
+→ Evidence
+→ AI Chat
+→ Frontend Integration
+→ Public Deployment
+→ QA
+```
+
+기능 구현 후에는 반드시 `docs/FINANCE_AI_DEV_STATUS.md`를 실제 코드/테스트 상태에 맞춰 갱신한다.
