@@ -6,10 +6,12 @@ from app.ai.prompts import (
     build_explanation_input,
 )
 from app.ai.provider import AIProvider, AIProviderError, AIProviderOutputError
+from app.retrieval.program_retrieval import ProgramRetrievalService
 from app.schemas.chat import (
     ChatAction,
     ChatEvidence,
     ChatMatch,
+    ChatMode,
     ChatProgram,
     ChatRequest,
     ChatResponse,
@@ -17,39 +19,91 @@ from app.schemas.chat import (
     ReplySource,
 )
 from app.schemas.eligibility import ProgramEligibility
-from app.schemas.matching import MatchResponse, MatchStatus
+from app.schemas.matching import BusinessStatus, MatchResponse, MatchStatus
 from app.schemas.program import Program
+from app.schemas.retrieval import ProgramSearchRequest, ProgramSearchResponse
 from app.services.program_service import ProgramService
 
 
 class ChatService:
-    def __init__(self, program_service: ProgramService, provider: AIProvider) -> None:
+    def __init__(
+        self,
+        program_service: ProgramService,
+        provider: AIProvider,
+        retrieval_service: ProgramRetrievalService,
+    ) -> None:
         self._program_service = program_service
         self._provider = provider
+        self._retrieval_service = retrieval_service
 
     def chat(self, request: ChatRequest) -> ChatResponse:
-        program: Program | None = None
-        eligibility: ProgramEligibility | None = None
-        match: MatchResponse | None = None
+        raw_programs: list[Program] = []
+        eligibility_by_program: dict[str, ProgramEligibility] = {}
+        match_by_program: dict[str, MatchResponse] = {}
+        retrieval: ProgramSearchResponse | None = None
+        retrieval_attempted = False
 
         if request.program_id:
             program = self._program_service.get_program(request.program_id)
-            eligibility = self._program_service.get_program_eligibility(
-                request.program_id
+            raw_programs = [program]
+            eligibility_by_program[program.program_id] = (
+                self._program_service.get_program_eligibility(program.program_id)
             )
             if request.focus_profile is not None:
-                match = self._program_service.match_program(
-                    request.program_id, request.focus_profile
+                match_by_program[program.program_id] = (
+                    self._program_service.match_program(
+                        program.program_id, request.focus_profile
+                    )
                 )
+        elif (
+            request.mode is ChatMode.GENERAL
+            and self._retrieval_service.is_program_search_intent(request.message)
+        ):
+            retrieval_attempted = True
+            search_request = self._search_request(request)
+            retrieval = self._retrieval_service.search(search_request)
+            for result in retrieval.results:
+                program = self._program_service.get_program(
+                    result.program.program_id
+                )
+                raw_programs.append(program)
+                eligibility_by_program[program.program_id] = (
+                    self._program_service.get_program_eligibility(
+                        program.program_id
+                    )
+                )
+                if request.focus_profile is not None:
+                    match_by_program[program.program_id] = (
+                        self._program_service.match_program(
+                            program.program_id, request.focus_profile
+                        )
+                    )
 
-        programs = [self._program_summary(program)] if program else []
-        matches = [self._chat_match(match)] if match else []
-        evidence = self._evidence(program, eligibility, match)
-        sources = [self._source(program)] if program else []
-        actions = self._actions(program)
-        match_status = match.match_status if match else None
+        programs = [self._program_summary(program) for program in raw_programs]
+        matches = [
+            self._chat_match(match_by_program[program.program_id])
+            for program in raw_programs
+            if program.program_id in match_by_program
+        ]
+        evidence = [
+            item
+            for program in raw_programs
+            for item in self._evidence(
+                program,
+                eligibility_by_program[program.program_id],
+                match_by_program.get(program.program_id),
+            )
+        ]
+        sources = [self._source(program) for program in raw_programs]
+        actions = [
+            action
+            for program in raw_programs
+            for action in self._actions(program)
+        ]
+        single_match = matches[0] if request.program_id and matches else None
+        match_status = single_match.match_status if single_match else None
         suggest_focus_mode = (
-            request.mode.value == "GENERAL" and request.focus_profile is None
+            request.mode is ChatMode.GENERAL and request.focus_profile is None
         )
 
         structured_context = {
@@ -63,8 +117,22 @@ class ChatService:
             "matches": [item.model_dump(mode="json") for item in matches],
             "evidence": [item.model_dump(mode="json") for item in evidence],
             "sources": [item.model_dump(mode="json") for item in sources],
+            "retrieval": (
+                [
+                    {
+                        "program_id": result.program.program_id,
+                        "retrieval_score": result.retrieval_score,
+                        "matched_fields": result.matched_fields,
+                    }
+                    for result in retrieval.results
+                ]
+                if retrieval is not None
+                else None
+            ),
             "limitations": {
-                "general_program_discovery_supported": False,
+                "general_program_discovery_supported": True,
+                "retrieval_method": "STRUCTURED_EXACT_KEYWORD_BASELINE",
+                "retrieval_score_is_eligibility_probability": False,
                 "session_persistence_supported": False,
                 "structured_results_are_authoritative": True,
             },
@@ -86,8 +154,10 @@ class ChatService:
         except AIProviderError:
             reply = build_template_reply(
                 match_status=match_status,
-                has_program_context=program is not None,
+                has_program_context=bool(raw_programs),
                 has_profile=request.focus_profile is not None,
+                retrieval_attempted=retrieval_attempted,
+                retrieval_result_count=len(raw_programs),
             )
             reply_source = ReplySource.TEMPLATE_FALLBACK
             model = None
@@ -103,7 +173,22 @@ class ChatService:
             sources=sources,
             actions=actions,
             suggest_focus_mode=suggest_focus_mode,
-            program_context_id=program.program_id if program else None,
+            program_context_id=request.program_id,
+        )
+
+    @staticmethod
+    def _search_request(request: ChatRequest) -> ProgramSearchRequest:
+        profile = request.focus_profile
+        business_status = profile.business_status if profile else None
+        if profile and business_status is None and profile.pre_founder is True:
+            business_status = BusinessStatus.PRE_FOUNDER
+        return ProgramSearchRequest(
+            query=request.message,
+            region=(profile.business_region or profile.region) if profile else None,
+            business_status=business_status,
+            user_type=profile.user_type if profile else None,
+            industry=profile.industry if profile else None,
+            limit=5,
         )
 
     @staticmethod

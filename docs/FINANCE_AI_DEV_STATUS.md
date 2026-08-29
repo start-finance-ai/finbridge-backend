@@ -311,6 +311,7 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 - DNF `common_conditions + eligibility_groups + global_exclusions` Matcher
 - Condition별 Evidence / Match Result
 - `GET /programs/{program_id}`
+- `GET /programs`
 - `POST /programs/match`
 - `POST /risk/calculate`
 - `POST /chat`
@@ -322,6 +323,9 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 - GENERAL / FOCUS stateless Chat contract
 - `program_id` → Program / Eligibility / Evidence context 연결
 - `focus_profile` → 기존 deterministic Matcher 연결
+- Structured / Exact / Keyword Program Retrieval
+- 고정 가중치 Ranking + `program_id` deterministic tie-break + Top-N
+- GENERAL 지원사업 intent → Retrieval Top-5 → Match / Evidence 연결
 - LLM timeout·인증·rate limit·server·empty output Template Fallback
 - 핵심 자동화 테스트
 
@@ -329,7 +333,7 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 
 - 전체 공고·별첨을 포괄하는 Eligibility Extraction
 - Database / ORM
-- 자연어 기반 전체 지원사업 Discovery
+- Semantic / Embedding 기반 Program Discovery
 - Conversation / Session Persistence
 - LLM 기반 Eligibility Extraction
 - Frontend Integration
@@ -346,6 +350,7 @@ Status:
 
 ```text
 GET /health
+GET /programs
 POST /programs/match
 GET /programs/{program_id}
 POST /risk/calculate
@@ -359,7 +364,10 @@ POST /chat
 - 없는 `program_id`: HTTP 404
 - `/programs/match`: HTTP 200
 - `/risk/calculate`: 정상 입력 HTTP 200, 잘못된 입력 HTTP 422
+- `/programs?query=물산업&limit=3`: HTTP 200, 실제 공고 1건
 - `/chat`: GENERAL, 유효한 `program_id`, `program_id + focus_profile` HTTP 200
+- GENERAL Retrieval Chat fallback: Program 5 / Evidence 11 / Source 5 유지
+- 미존재 검색어 Chat fallback: Program 0 / Evidence 0, Snapshot 범위 안내
 - OpenAI 정상 GENERAL smoke: `reply_source=LLM`, model `gpt-5.6-luna`
 - OpenAI 비활성화 smoke: `reply_source=TEMPLATE_FALLBACK`, Structured Result 유지
 
@@ -377,8 +385,9 @@ POST /sales/analyze   # 실제 매출장표 분석 구현 시에만
 ```
 
 `/chat`은 일반모드/집중모드와 선택적 `program_id` context를 처리하는 stateless
-Orchestration이다. `session_id`는 Contract에만 있으며 저장하지 않는다. General
-자연어 기반 전체 지원사업 Discovery와 서버 측 후속 대화 persistence는 미구현이다.
+Orchestration이다. `session_id`는 Contract에만 있으며 저장하지 않는다. GENERAL
+지원사업 탐색 intent는 현재 Snapshot의 deterministic Retrieval Top-5에 연결된다.
+Semantic Search와 서버 측 후속 대화 persistence는 미구현이다.
 
 # 9. Database Status
 
@@ -438,7 +447,7 @@ Status:
 
 # 11. Retrieval Status
 
-Status: `SNAPSHOT PROGRAM RETRIEVAL IMPLEMENTED`
+Status: `STRUCTURED / EXACT / KEYWORD RETRIEVAL IMPLEMENTED / VERIFIED LOCALLY`
 
 현재 구현 Baseline:
 
@@ -446,6 +455,10 @@ Status: `SNAPSHOT PROGRAM RETRIEVAL IMPLEMENTED`
 Raw Snapshot
 → Program Normalization
 → in-memory ID Repository
+→ Structured Filter
+→ Exact / Keyword Search
+→ Fixed-weight Ranking
+→ Top-N
 ```
 
 구현됨:
@@ -453,17 +466,36 @@ Raw Snapshot
 - Snapshot 20건 로딩
 - `pblancId` 기준 상세 조회
 - 누락·잘못된 JSON·잘못된 구조 예외처리
+- `GET /programs`
+- query / region / business_status / user_type / category / provider / industry
+- limit 기본 5, 최대 20
+- 공고명·기관·분류·대상·요약·Eligibility Evidence Keyword 검색
+- hashtags 보조 검색 사용, Eligibility Evidence에서는 계속 제외
+- 명시 Region / Business Status 우선 필터
+- 고정 가중치와 `program_id` tie-break
+- `retrieval_score=DETERMINISTIC_RANKING_ONLY`
+- GENERAL Chat 탐색 intent 연결
 
 미구현:
 
-- 목록 검색 / Structured Filter
-- Keyword Search
+- 형태소 분석
+- Semantic Search / Embedding / Vector Retrieval
+- 전체 273건 또는 최신 Snapshot 서비스 연결
 
-Vector Retrieval:
+현재 20건 baseline 결과만으로 Vector Retrieval 필요성을 확정하지 않는다.
 
-NOT DECIDED
+실제 Raw 20건 query 평가:
 
-Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우에만 추가한다.
+| query | 결과 수 | Top-1 program_id | Top-1 matched field 요약 |
+|---|---:|---|---|
+| 창업 | 20 | `PBLN_000000000125663` | name / organization / category / evidence / summary |
+| 청년 | 4 | `PBLN_000000000125612` | name / organization / evidence / summary |
+| 대구 | 4 | `PBLN_000000000125748` | name / provider / evidence / summary |
+| 중소벤처기업부 | 3 | `PBLN_000000000125663` | provider / summary |
+| 절대없는검색어 | 0 | - | - |
+
+위 결과는 20건 Snapshot 내부의 deterministic baseline 결과이며 전체 기업마당
+검색 품질이나 정식 Retrieval Accuracy 지표가 아니다.
 
 
 # 12. Eligibility Status
@@ -661,7 +693,7 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 2026-08-29 실제 실행 결과:
 
 ```text
-78 passed, 0 failed
+96 passed, 0 failed
 ```
 
 검증 범위:
@@ -705,6 +737,14 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 - empty model output와 API Key 미설정 fallback
 - OpenAI Responses API parameter(`low`, `store=False`) 경계
 - 환경변수 override와 Secret 비노출 settings 표현
+- 공고명 exact, 기관·분류·요약 Keyword 검색
+- Region / Business Status Structured Filter
+- normalization / alias / deterministic ranking / limit
+- 검색 0건과 Repository 외 Program 미생성
+- Retrieval score와 Eligibility Match 상태 분리
+- GENERAL Chat Retrieval Top-N / Evidence / Source 연결
+- no-result 구조와 Snapshot 범위 Template Fallback
+- 비검색 Risk intent / FOCUS / explicit `program_id` 회귀
 
 미검증 / 미구현 테스트:
 
@@ -821,7 +861,7 @@ Mitigation:
 현재 Core 진행 Blocker / 미완료 결정:
 
 1. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
-2. General 자연어 질문에서 안전한 Program Retrieval baseline
+2. 서비스용 최신 Snapshot Refresh와 검증 절차
 3. Backend Hosting / Public 배포 방식
 4. Frontend Integration Contract 최종 연결
 5. 실제 Profile을 외부 LLM에 전달할 때의 개인정보 최소화·동의 정책
@@ -845,15 +885,15 @@ Mitigation:
 
 ## P0 — 다음 작업
 
-1. 현재 Snapshot 기반 Structured / Keyword Program 목록 Retrieval 구현
-2. General 질문과 Retrieval의 안전한 연결 Contract 결정
+1. 기존 기업마당 Collector 출력의 service-ready Snapshot Refresh 경로 구현
+2. Refresh 시 Raw 구조·중복 ID·Normalization 검증과 기존 Snapshot 보존 정책 확정
 3. 현재 20건 Extractor의 Human Review 및 미지원 Pattern 우선순위 결정
 
 ## P1 — Core User Flow
 
-4. Frontend 지원사업 상세 ↔ 구현된 `program_id` Chat Context 연결
-5. Profile 외부 Provider 전달 최소화·동의 정책 확정
-6. Stateless 후속 대화 Client context Contract 검증
+4. Frontend 목록 검색 ↔ `GET /programs` 연결
+5. Frontend 지원사업 상세 ↔ 구현된 `program_id` Chat Context 연결
+6. Profile 외부 Provider 전달 최소화·동의 정책 확정
 
 ## P2 — 유형별 기능 / 배포
 
@@ -911,6 +951,7 @@ Framework                    IMPLEMENTED
 Database                     TODO
 API                          VERIFIED LOCALLY
 Snapshot Retrieval           VERIFIED
+Structured/Keyword Retrieval VERIFIED (20 RAW)
 Program Normalization        VERIFIED
 Eligibility Model v0.1       IMPLEMENTED
 Eligibility Extraction       BASELINE VERIFIED (20 RAW)
@@ -919,7 +960,7 @@ Calculation — Risk MVP       VERIFIED
 LLM Explanation              LIVE SMOKE VERIFIED
 Chat / OpenAI Explanation    VERIFIED LOCALLY
 Chat Template Fallback       VERIFIED LOCALLY
-Tests                        78 PASSED
+Tests                        96 PASSED
 ```
 
 Infra:

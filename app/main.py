@@ -11,8 +11,9 @@ from app.api.risk import router as risk_router
 from app.config import get_bizinfo_snapshot_path, get_openai_settings
 from app.data.bizinfo_loader import BizinfoDataError
 from app.data.program_repository import ProgramRepository
-from app.services.program_service import ProgramService
+from app.retrieval.program_retrieval import ProgramRetrievalService
 from app.services.chat_service import ChatService
+from app.services.program_service import ProgramService
 
 
 def create_app(ai_provider: AIProvider | None = None) -> FastAPI:
@@ -25,9 +26,12 @@ def create_app(ai_provider: AIProvider | None = None) -> FastAPI:
         ProgramRepository(get_bizinfo_snapshot_path())
     )
     application.state.program_service = program_service
+    program_retrieval_service = ProgramRetrievalService(program_service)
+    application.state.program_retrieval_service = program_retrieval_service
     application.state.chat_service = ChatService(
         program_service,
         ai_provider or OpenAIProvider(get_openai_settings()),
+        program_retrieval_service,
     )
 
     @application.exception_handler(BizinfoDataError)

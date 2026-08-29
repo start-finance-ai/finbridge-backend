@@ -31,6 +31,9 @@ class ProgramService:
             raise ProgramNotFoundError(program_id)
         return program
 
+    def list_programs(self) -> list[Program]:
+        return self._repository.list()
+
     def match_program(self, program_id: str, profile: UserProfile) -> MatchResponse:
         program = self.get_program(program_id)
         eligibility = self._eligibility_for(program)

@@ -8,6 +8,8 @@ def build_template_reply(
     match_status: MatchStatus | None,
     has_program_context: bool,
     has_profile: bool,
+    retrieval_attempted: bool = False,
+    retrieval_result_count: int = 0,
 ) -> str:
     if match_status is MatchStatus.MATCH:
         return (
@@ -29,6 +31,17 @@ def build_template_reply(
         return (
             "현재 확보된 정보만으로는 일부 자격조건을 판단하기 어렵습니다. 공식 공고의 "
             "세부 조건 확인이 필요합니다."
+        )
+    if retrieval_attempted and retrieval_result_count == 0:
+        return (
+            "현재 확보된 공고 범위에서는 조건에 맞는 후보를 찾지 못했습니다. "
+            "검색어 또는 조건을 바꿔 다시 확인해 주세요."
+        )
+    if retrieval_attempted:
+        return (
+            f"현재 확보된 공고 범위에서 관련 후보 {retrieval_result_count}건을 "
+            "찾았습니다. 검색 순위는 자격 충족 확률이 아니므로 아래 조건과 공식 "
+            "공고를 함께 확인해 주세요."
         )
     if has_program_context and not has_profile:
         return (

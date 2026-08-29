@@ -1,0 +1,1 @@
+"""Deterministic program retrieval."""

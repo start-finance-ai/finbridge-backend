@@ -11,6 +11,8 @@ Evidence와 함께 구조화하는 보수적인 Regex baseline을 적용합니�
 `POST /chat`은 이 구조화된 Program·Matching·Evidence를 OpenAI Responses API에
 전달해 설명 문장을 생성합니다. LLM은 자격 판정이나 금융 계산을 수행하지 않으며,
 Provider 장애 시에도 구조화 결과를 유지하고 deterministic template을 반환합니다.
+GENERAL 지원사업 탐색 질문은 현재 20건 Snapshot에 대해 Structured / Exact /
+Keyword Retrieval을 먼저 수행하고 Top-5만 Chat context로 전달합니다.
 
 ## 로컬 실행
 
@@ -35,16 +37,22 @@ OPENAI_TIMEOUT_SECONDS=10
 ## API
 
 * `GET /health`
+* `GET /programs`
 * `GET /programs/{program_id}`
 * `POST /programs/match`
 * `POST /risk/calculate`
 * `POST /chat`
 * OpenAPI: `GET /docs`
 
+`GET /programs`는 선택적인 `query`, `region`, `business_status`, `user_type`,
+`category`, `provider`, `industry`, `limit`을 받습니다. `limit` 기본값은 5,
+최대값은 20입니다. 반환되는 `retrieval_score`는 deterministic 검색 순위용
+정수이며 Eligibility 확률이나 신청 가능 확률이 아닙니다.
+
 `/chat`은 `mode`(기본 `GENERAL`), `message`, 선택적 `focus_profile`,
 `program_id`, `session_id`를 받습니다. 현재는 stateless이며 `session_id`를
-저장하지 않습니다. 자연어 기반 전체 지원사업 탐색도 아직 지원하지 않으므로,
-검증된 Program context가 필요한 설명은 `program_id`를 함께 전달해야 합니다.
+저장하지 않습니다. GENERAL의 지원사업 탐색 intent는 위 Retrieval baseline에
+연결되며, Semantic Retrieval이나 자유로운 의미 검색은 아직 지원하지 않습니다.
 
 Eligibility baseline 감사:
 

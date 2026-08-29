@@ -233,6 +233,22 @@ Backend API에서 사용자 입력을 검증한다.
 
 # 5. Program Retrieval
 
+[IMPLEMENTED — 2026-08-29]
+
+현재 20건 Snapshot에 대해 다음 deterministic baseline을 구현했다.
+
+```text
+Structured Filter
+→ Exact / Keyword Search
+→ Fixed-weight Ranking
+→ deterministic program_id tie-break
+→ Top-N
+```
+
+`retrieval_score`는 검색 순위용 정수이며 Eligibility 또는 신청 가능 확률이
+아니다. hashtags는 다른 공식 필드가 일치한 경우에만 보조 점수로 사용하며
+Eligibility Evidence나 MATCH 판정에는 사용하지 않는다.
+
 ## 5.1 Structured Retrieval
 
 다음은 RDB 또는 Structured Query를 우선한다.
@@ -267,6 +283,10 @@ Backend API에서 사용자 입력을 검증한다.
 Vector DB 사용은 아직 확정하지 않는다.
 
 단순 DB + Text Search로 충분하면 Vector DB를 도입하지 않는다.
+
+현재 baseline은 형태소 분석, Embedding, Vector DB, Semantic Search를 사용하지
+않는다. 조건이 명시되지 않은 공고를 검색 단계에서 곧바로 제외하지 않으며,
+후보의 최종 자격 상태는 기존 deterministic Matcher가 별도로 계산한다.
 
 # 6. Eligibility Constraint Extraction
 
@@ -757,6 +777,13 @@ GET /health
 서비스 상태 확인.
 
 ```text
+GET /programs
+```
+
+현재 Snapshot 대상 Structured / Exact / Keyword Search. Query / Filter / limit과
+함께 compact Program, `retrieval_score`, `matched_fields`, 공식 Source를 반환한다.
+
+```text
 POST /chat
 ```
 
@@ -777,8 +804,9 @@ Request 후보:
 
 지원사업 상세에서 `AI에게 이 공고 물어보기`를 누르는 경우 `program_id`를
 context로 전달한다. `focus_profile`이 함께 있으면 기존 deterministic Matcher를
-실행하며, LLM은 그 결과를 다시 판정하지 않는다. General 자연어 기반 전체 공고
-탐색과 session persistence는 아직 구현하지 않았다.
+실행하며, LLM은 그 결과를 다시 판정하지 않는다. GENERAL의 보수적인 지원사업
+탐색 intent는 현재 Snapshot Retrieval Top-5에 연결된다. Semantic Search와
+session persistence는 아직 구현하지 않았다.
 
 ```text
 POST /programs/match

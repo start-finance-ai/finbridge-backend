@@ -48,7 +48,7 @@ def client_for(provider, monkeypatch, snapshot_path) -> ASGITestClient:
 def test_chat_defaults_to_general_mode(monkeypatch, snapshot_path) -> None:
     client = client_for(SuccessfulProvider(), monkeypatch, snapshot_path)
 
-    response = client.post("/chat", json={"message": "창업 지원이 궁금해요"})
+    response = client.post("/chat", json={"message": "안녕하세요"})
 
     assert response.status_code == 200
     payload = response.json()
