@@ -8,6 +8,10 @@
 Evidence와 함께 구조화하는 보수적인 Regex baseline을 적용합니다. 공고문·별첨
 참조나 지원하지 않는 조건이 남으면 `MATCH`로 올리지 않습니다.
 
+`POST /chat`은 이 구조화된 Program·Matching·Evidence를 OpenAI Responses API에
+전달해 설명 문장을 생성합니다. LLM은 자격 판정이나 금융 계산을 수행하지 않으며,
+Provider 장애 시에도 구조화 결과를 유지하고 deterministic template을 반환합니다.
+
 ## 로컬 실행
 
 ```powershell
@@ -19,13 +23,28 @@ Evidence와 함께 구조화하는 보수적인 Regex baseline을 적용합니�
 `data/raw/bizinfo/bizinfo_startup_sample.json`입니다. 필요한 경우
 `FINBRIDGE_BIZINFO_SNAPSHOT` 환경변수로 경로만 변경할 수 있습니다.
 
+Chat 환경변수는 `.env.example`을 참고해 서버 환경에 설정합니다. Secret은
+`.env`에만 두고 Git에 포함하지 않습니다.
+
+```text
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.6-luna
+OPENAI_TIMEOUT_SECONDS=10
+```
+
 ## API
 
 * `GET /health`
 * `GET /programs/{program_id}`
 * `POST /programs/match`
 * `POST /risk/calculate`
+* `POST /chat`
 * OpenAPI: `GET /docs`
+
+`/chat`은 `mode`(기본 `GENERAL`), `message`, 선택적 `focus_profile`,
+`program_id`, `session_id`를 받습니다. 현재는 stateless이며 `session_id`를
+저장하지 않습니다. 자연어 기반 전체 지원사업 탐색도 아직 지원하지 않으므로,
+검증된 Program context가 필요한 설명은 `program_id`를 함께 전달해야 합니다.
 
 Eligibility baseline 감사:
 

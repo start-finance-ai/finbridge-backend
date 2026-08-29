@@ -33,18 +33,7 @@ class ProgramService:
 
     def match_program(self, program_id: str, profile: UserProfile) -> MatchResponse:
         program = self.get_program(program_id)
-        eligibility = self._eligibility_by_program_id.get(program_id)
-        if eligibility is None:
-            try:
-                eligibility = self._extractor.extract(program)
-            except Exception:
-                # Extraction is an evidence-enrichment boundary. A failed baseline
-                # must degrade to UNKNOWN instead of taking down program retrieval.
-                eligibility = ProgramEligibility(
-                    program_id=program.program_id,
-                    source_url=program.source_url,
-                    eligibility_extraction_status=ProgramExtractionStatus.UNKNOWN,
-                )
+        eligibility = self._eligibility_for(program)
 
         evaluation = self._matcher.match(eligibility, profile)
         return MatchResponse(
@@ -61,3 +50,21 @@ class ProgramService:
             ),
             reason=evaluation.reason,
         )
+
+    def get_program_eligibility(self, program_id: str) -> ProgramEligibility:
+        return self._eligibility_for(self.get_program(program_id))
+
+    def _eligibility_for(self, program: Program) -> ProgramEligibility:
+        eligibility = self._eligibility_by_program_id.get(program.program_id)
+        if eligibility is None:
+            try:
+                eligibility = self._extractor.extract(program)
+            except Exception:
+                # Extraction is an evidence-enrichment boundary. A failed baseline
+                # must degrade to UNKNOWN instead of taking down program retrieval.
+                eligibility = ProgramEligibility(
+                    program_id=program.program_id,
+                    source_url=program.source_url,
+                    eligibility_extraction_status=ProgramExtractionStatus.UNKNOWN,
+                )
+        return eligibility

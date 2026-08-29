@@ -6,7 +6,8 @@ Last Updated: 2026-08-29
 
 현재 Architecture는 실제 기업마당 지원사업정보 API 검증 결과를 기반으로 설계한다.
 
-특정 Framework, Database, LLM Provider, Cloud Platform은 아직 확정하지 않는다.
+현재 Core 구현은 FastAPI와 OpenAI Responses API 설명 Provider를 사용한다.
+Database와 Cloud Platform 등 운영 기술은 아직 확정하지 않는다.
 
 기술 선택보다 다음을 우선한다.
 
@@ -550,7 +551,16 @@ Calculation Engine은 다음 원칙을 따른다.
 
 # 15. LLM Role
 
-LLM은 다음 역할에 사용한다.
+[IMPLEMENTED — 2026-08-29]
+
+`POST /chat`의 설명 Provider는 OpenAI 공식 Python SDK와 Responses API를
+사용한다. 모델과 timeout은 환경변수로 주입하며 기본값은
+`gpt-5.6-luna`, 10초이다. reasoning effort는 설명 역할에 맞춰 `low`로
+고정했다. Provider 호출은 Router가 아니라 Chat Service 뒤의 작은 Provider
+경계에서 수행한다.
+
+현재 `/chat` 구현은 아래 역할 중 Explanation만 사용한다. Input Understanding과
+Eligibility Extraction은 아직 구현 후보이며 완료 상태가 아니다.
 
 ## Input Understanding
 
@@ -736,11 +746,9 @@ backend/
 └─ tests/
 ```
 
-실제 Framework가 결정되면 해당 Framework 관례에 맞게 변경할 수 있다.
+현재 구현은 FastAPI Router / Service / Schema 경계를 따른다.
 
-# 22. API Candidate Structure
-
-아직 최종 Endpoint는 아니다.
+# 22. API Structure
 
 ```text
 GET /health
@@ -752,7 +760,8 @@ GET /health
 POST /chat
 ```
 
-일반모드/집중모드 공통 대화 Orchestration 후보.
+일반모드/집중모드 공통 대화 Orchestration. 2026-08-29 기준 로컬 구현 및
+실제 OpenAI smoke test를 완료했다.
 
 Request 후보:
 
@@ -766,7 +775,10 @@ Request 후보:
 }
 ```
 
-지원사업 상세에서 `AI에게 이 공고 물어보기`를 누르는 경우 `program_id`를 context로 전달하는 구조를 검토한다.
+지원사업 상세에서 `AI에게 이 공고 물어보기`를 누르는 경우 `program_id`를
+context로 전달한다. `focus_profile`이 함께 있으면 기존 deterministic Matcher를
+실행하며, LLM은 그 결과를 다시 판정하지 않는다. General 자연어 기반 전체 공고
+탐색과 session persistence는 아직 구현하지 않았다.
 
 ```text
 POST /programs/match
@@ -1100,12 +1112,8 @@ Frontend에 Secret을 노출하지 않는다.
 
 현재 확정하지 않은 사항:
 
-* Backend Framework
-* Programming Language 최종 선택
 * Database
 * ORM
-* LLM Provider
-* LLM Model
 * Embedding Model
 * Vector DB
 * Agent Framework
@@ -1117,6 +1125,12 @@ Frontend에 Secret을 노출하지 않는다.
 * Cache
 
 필요성과 구현기간을 검토한 뒤 Architecture Freeze 시 확정한다.
+
+현재 구현에 한해 확정한 사항:
+
+* LLM Explanation Provider: OpenAI Responses API
+* Default Explanation Model: `gpt-5.6-luna` (환경변수로 변경 가능)
+* Failure handling: Structured Result 유지 + deterministic template fallback
 
 # 37. Architecture Freeze Conditions
 

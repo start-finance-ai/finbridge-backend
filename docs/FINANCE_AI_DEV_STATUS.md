@@ -28,7 +28,9 @@ G4 — Core Implementation IN PROGRESS
 
 [RECOMMENDATION] 2026-08-28 문서에서는 Architecture Freeze 전에 다수의 추가 데이터 검증을 선행하려 했으나, 현재 일정에서는 **검증된 DS-001을 기준으로 최소 Schema와 API Contract를 빠르게 Freeze하고 Core Backend 구현으로 전환**하는 편이 안전하다.
 
-검증된 기업마당 Snapshot을 사용하는 FinBridge Core Backend baseline을 구현하고 로컬 실행·API·자동화 테스트를 검증했다.
+검증된 기업마당 Snapshot을 사용하는 FinBridge Core Backend baseline과
+Structured Result 기반 `/chat` 설명 흐름을 구현하고 로컬 실행·API·자동화
+테스트를 검증했다.
 
 # 2. Repository
 
@@ -311,17 +313,25 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 - `GET /programs/{program_id}`
 - `POST /programs/match`
 - `POST /risk/calculate`
+- `POST /chat`
 - 원리금균등 상환·현금흐름·Runway·잔존채무 Calculation
 - 실제 Raw 20건 대상 deterministic Eligibility Extraction baseline
 - Eligibility Extraction → 기존 Matcher 연결
 - Raw 20건 Audit / Coverage 스크립트
+- OpenAI Responses API 설명 Provider와 low reasoning 설정
+- GENERAL / FOCUS stateless Chat contract
+- `program_id` → Program / Eligibility / Evidence context 연결
+- `focus_profile` → 기존 deterministic Matcher 연결
+- LLM timeout·인증·rate limit·server·empty output Template Fallback
 - 핵심 자동화 테스트
 
 아직 구현 완료 상태가 아님:
 
 - 전체 공고·별첨을 포괄하는 Eligibility Extraction
 - Database / ORM
-- LLM Integration
+- 자연어 기반 전체 지원사업 Discovery
+- Conversation / Session Persistence
+- LLM 기반 Eligibility Extraction
 - Frontend Integration
 - Public Deployment
 
@@ -339,6 +349,7 @@ GET /health
 POST /programs/match
 GET /programs/{program_id}
 POST /risk/calculate
+POST /chat
 ```
 
 실제 Uvicorn 로컬 프로세스에서 다음을 확인했다.
@@ -348,6 +359,9 @@ POST /risk/calculate
 - 없는 `program_id`: HTTP 404
 - `/programs/match`: HTTP 200
 - `/risk/calculate`: 정상 입력 HTTP 200, 잘못된 입력 HTTP 422
+- `/chat`: GENERAL, 유효한 `program_id`, `program_id + focus_profile` HTTP 200
+- OpenAI 정상 GENERAL smoke: `reply_source=LLM`, model `gpt-5.6-luna`
+- OpenAI 비활성화 smoke: `reply_source=TEMPLATE_FALLBACK`, Structured Result 유지
 
 실제 Raw 20건 중 baseline으로 Program-level `SUPPORTED`가 된 3건은 구조화
 Condition과 Evidence로 Matcher에 연결된다. Uvicorn에서 실제 공고
@@ -358,12 +372,13 @@ Condition과 Evidence로 Matcher에 연결된다. Uvicorn에서 실제 공고
 아직 미구현인 Endpoint 후보:
 
 ```text
-POST /chat
 POST /income-stability/calculate
 POST /sales/analyze   # 실제 매출장표 분석 구현 시에만
 ```
 
-`/chat`은 일반모드/집중모드, 후속 대화, 선택적 `program_id` context를 처리하는 Orchestration 후보이다.
+`/chat`은 일반모드/집중모드와 선택적 `program_id` context를 처리하는 stateless
+Orchestration이다. `session_id`는 Contract에만 있으며 저장하지 않는다. General
+자연어 기반 전체 지원사업 Discovery와 서버 측 후속 대화 persistence는 미구현이다.
 
 # 9. Database Status
 
@@ -387,21 +402,30 @@ DB 부재가 현재 Snapshot 기반 Core API 실행을 막지는 않는다.
 
 Status:
 
-NOT DECIDED
+`OPENAI EXPLANATION PROVIDER IMPLEMENTED / LIVE SMOKE VERIFIED`
 
-아직 확정하지 않은 사항:
+현재 구현·검증:
 
-- LLM Provider
-- Model
+- OpenAI 공식 Python SDK `3.6.0`
+- Responses API
+- 기본 model `gpt-5.6-luna` (`OPENAI_MODEL`로 변경 가능)
+- reasoning effort `low`
+- `OPENAI_TIMEOUT_SECONDS` 기본 10초, SDK retry 비활성화
+- Structured Context 기반 자연어 Explanation
+- Provider 장애 시 deterministic Template Fallback
+
+아직 확정·구현하지 않은 사항:
+
 - Embedding Model
 - Vector DB
 - Agent Framework
+- 다른 LLM Provider fallback
+- LLM Eligibility Extraction
 
-현재 AI 역할 후보:
+현재 구현된 AI 역할:
 
-1. 사용자 자연어 이해
-2. 비정형 Eligibility 조건 추출
-3. 검증된 결과 설명
+1. 검증된 Structured Program / Matching / Evidence 설명
+2. 추가 확인사항과 다음 행동을 자연어로 안내
 
 현재 AI가 담당하지 않는 영역:
 
@@ -574,16 +598,20 @@ Status:
 - 매출장표 분석 진입점
 - 소득 안정성 주의사항
 
-아직 Freeze가 필요한 API Contract:
+Backend 구현으로 현재 확정한 API Contract:
 
 - Focus Profile Input Schema
 - Chat Request / Response Schema
 - Program Result Schema
 - Match/Evidence Schema
 - Risk Input/Result Schema
+- Program Detail → Chat Context 전달 방식
+
+아직 Freeze 또는 구현이 필요한 Contract:
+
 - Income Stability Input/Result Schema
 - Error Response
-- Program Detail → Chat Context 전달 방식
+- Frontend 실제 연동과 Client-side stateless 대화 context
 
 # 17. Infrastructure Status
 
@@ -593,7 +621,6 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 
 - Backend Hosting
 - Database Hosting
-- LLM Provider
 - Cloud
 - Domain
 - CI/CD
@@ -634,7 +661,7 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 2026-08-29 실제 실행 결과:
 
 ```text
-63 passed, 0 failed
+78 passed, 0 failed
 ```
 
 검증 범위:
@@ -670,10 +697,19 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 - 유한/0/null Runway 경계
 - 0% / 양의 금리 잔존채무
 - 최종 Response 2자리 반올림
+- `/chat` mode 기본값과 GENERAL / FOCUS Contract
+- 유효·존재하지 않는 `program_id` 처리
+- `focus_profile`에서 기존 Matcher 재사용
+- Program / Match / Evidence / Source / Action 구조 보존
+- timeout / authentication / rate limit / provider server error fallback
+- empty model output와 API Key 미설정 fallback
+- OpenAI Responses API parameter(`low`, `store=False`) 경계
+- 환경변수 override와 Secret 비노출 settings 표현
 
 미검증 / 미구현 테스트:
 
-- LLM / Prompt Injection
+- Prompt Injection 전용 Evaluation
+- 개인정보가 포함된 Profile의 외부 Provider live 전송
 - Frontend Integration
 - Public Deployment
 
@@ -784,10 +820,11 @@ Mitigation:
 
 현재 Core 진행 Blocker / 미완료 결정:
 
-1. `/chat` LLM Provider와 API Contract
-2. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
+1. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
+2. General 자연어 질문에서 안전한 Program Retrieval baseline
 3. Backend Hosting / Public 배포 방식
 4. Frontend Integration Contract 최종 연결
+5. 실제 Profile을 외부 LLM에 전달할 때의 개인정보 최소화·동의 정책
 
 [RECOMMENDATION] Core 구현의 필수 선행조건에서 제외할 항목:
 
@@ -808,15 +845,15 @@ Mitigation:
 
 ## P0 — 다음 작업
 
-1. `/chat` LLM Provider / API Contract Freeze
-2. Structured Result 기반 `/chat` + LLM 장애 Fallback 구현
+1. 현재 Snapshot 기반 Structured / Keyword Program 목록 Retrieval 구현
+2. General 질문과 Retrieval의 안전한 연결 Contract 결정
 3. 현재 20건 Extractor의 Human Review 및 미지원 Pattern 우선순위 결정
 
 ## P1 — Core User Flow
 
-4. 실제 Program Eligibility 데이터 연결
-5. Structured / Keyword Program 목록 Retrieval
-6. 지원사업 상세 ↔ `program_id` Chat Context
+4. Frontend 지원사업 상세 ↔ 구현된 `program_id` Chat Context 연결
+5. Profile 외부 Provider 전달 최소화·동의 정책 확정
+6. Stateless 후속 대화 Client context Contract 검증
 
 ## P2 — 유형별 기능 / 배포
 
@@ -879,8 +916,10 @@ Eligibility Model v0.1       IMPLEMENTED
 Eligibility Extraction       BASELINE VERIFIED (20 RAW)
 Matching                     VERIFIED
 Calculation — Risk MVP       VERIFIED
-LLM                          TODO
-Tests                        63 PASSED
+LLM Explanation              LIVE SMOKE VERIFIED
+Chat / OpenAI Explanation    VERIFIED LOCALLY
+Chat Template Fallback       VERIFIED LOCALLY
+Tests                        78 PASSED
 ```
 
 Infra:
