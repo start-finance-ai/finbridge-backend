@@ -312,11 +312,14 @@ Status: `CORE BACKEND BASELINE IMPLEMENTED / VERIFIED LOCALLY`
 - `POST /programs/match`
 - `POST /risk/calculate`
 - 원리금균등 상환·현금흐름·Runway·잔존채무 Calculation
+- 실제 Raw 20건 대상 deterministic Eligibility Extraction baseline
+- Eligibility Extraction → 기존 Matcher 연결
+- Raw 20건 Audit / Coverage 스크립트
 - 핵심 자동화 테스트
 
 아직 구현 완료 상태가 아님:
 
-- Raw 공고 Eligibility Extraction / 실제 20건 구조화
+- 전체 공고·별첨을 포괄하는 Eligibility Extraction
 - Database / ORM
 - LLM Integration
 - Frontend Integration
@@ -346,7 +349,11 @@ POST /risk/calculate
 - `/programs/match`: HTTP 200
 - `/risk/calculate`: 정상 입력 HTTP 200, 잘못된 입력 HTTP 422
 
-Raw Snapshot에는 아직 구조화된 Eligibility가 없으므로 실제 공고 Match API는 이를 임의 추출하지 않고 `UNKNOWN`을 반환한다.
+실제 Raw 20건 중 baseline으로 Program-level `SUPPORTED`가 된 3건은 구조화
+Condition과 Evidence로 Matcher에 연결된다. Uvicorn에서 실제 공고
+`PBLN_000000000125612`의 `MATCH`를 HTTP 200으로 확인했다. 공고문 참조가 남은
+`PBLN_000000000125864`는 비교 가능한 Condition이 있어도 `NEEDS_REVIEW`를
+반환한다.
 
 아직 미구현인 Endpoint 후보:
 
@@ -437,7 +444,7 @@ Structured + Keyword Baseline의 실제 성능을 확인한 뒤 필요한 경우
 
 # 12. Eligibility Status
 
-Status: `SCHEMA v0.1 MODEL + MATCHER IMPLEMENTED / EXTRACTION NOT IMPLEMENTED`
+Status: `SCHEMA v0.1 + CONSERVATIVE REGEX BASELINE + MATCHER IMPLEMENTED`
 
 구현됨:
 
@@ -449,8 +456,26 @@ Status: `SCHEMA v0.1 MODEL + MATCHER IMPLEMENTED / EXTRACTION NOT IMPLEMENTED`
 - `global_exclusions` 우선
 - `EXCLUDE` positive predicate 단일 평가
 - 조건 부재 / Evidence 부족 / 사용자 입력 부족 분리
+- `bsnsSumryCn` 명시 구절 기반 REGION / AGE / PRE_FOUNDER /
+  BUSINESS_AGE / BUSINESS_REGISTRATION_STATUS baseline
+- Evidence / `raw_value` / normalized operand / extraction status 보존
+- 완전한 예비창업자 OR 숫자 업력 대안 경로의 `eligibility_groups` 변환
 
-Raw 20건에서 실제 Eligibility를 자동 추출하거나 구조화하는 Extractor는 아직 없다. 따라서 실제 Raw Program은 Program extraction `UNKNOWN`이며 안전한 `MATCH`를 만들지 않는다.
+Raw 20건 실제 실행 coverage:
+
+```text
+총 Program                  20
+Condition 추출 Program      17
+SUPPORTED                    3
+NEEDS_REVIEW                16
+UNKNOWN                      0
+UNSUPPORTED                  1
+```
+
+Condition 개수는 지역 10, 숫자 연령 4, 예비창업 5, 숫자 업력 9, 사업자 상태
+8이다. 이는 extractor가 만든 구조화 Condition 수이며 전체 20건의 실제 Eligibility
+분포나 extraction precision / recall이 아니다. `hashtags`와 `trgetNm`은 Evidence로
+사용하지 않았다.
 
 
 # 13. Calculation Engine Status
@@ -609,7 +634,7 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 2026-08-29 실제 실행 결과:
 
 ```text
-47 passed, 0 failed
+63 passed, 0 failed
 ```
 
 검증 범위:
@@ -626,7 +651,15 @@ Status: `LOCAL RUNTIME / HEALTH VERIFIED, HOSTING NOT DECIDED`
 - 잘못된 Operator operand 거부
 - Unsupported Program의 안전한 `NEEDS_REVIEW`
 - 정상 Program 상세 / 404
-- 실제 Raw Program Match의 안전한 `UNKNOWN`
+- 숫자 연령 상·하한 / range와 숫자 없는 청년 미추정
+- 숫자 업력 YEAR 비교와 Matcher 연계
+- 명시 지역 추출 / 전국 지역조건 미생성
+- 예비창업자와 완전한 OR Group 추출
+- 모든 추출 Condition의 Evidence / source field 보존
+- 공고문 참조 Program의 `MATCH` 차단
+- 실제 Raw 20건 extraction coverage
+- 실제 Raw Program의 `MATCH` / `NEEDS_REVIEW`
+- Extractor 실패 시 Backend crash 없이 `UNKNOWN` fallback
 - 잘못된 Enum 422
 - 잘못된 숫자 범위 422
 - 잘못된 `jsonArray` 구조 거부
@@ -655,7 +688,9 @@ Status: `ELIGIBILITY REVIEW-PACK BASELINE COMPLETE / BACKEND MATCHER CASES VERIF
 - `review_pack_negative_control_false_negative_rate`: 25.00%
 - Backend Matcher 경계 Case 1~6 자동화 테스트 완료
 
-Review-Pack 지표는 전체 273건의 정식 precision / recall / accuracy가 아니다. 실제 Raw 공고 Eligibility Extraction과 End-to-End Matching 평가는 아직 미완료다.
+Review-Pack 지표는 전체 273건의 정식 precision / recall / accuracy가 아니다.
+20건 deterministic baseline과 실제 Matcher 연결은 완료했지만, 전체 273건과
+공고문·별첨을 포함한 Extraction / End-to-End 평가는 아직 미완료다.
 
 
 # 21. Current Risks
@@ -749,8 +784,8 @@ Mitigation:
 
 현재 Core 진행 Blocker / 미완료 결정:
 
-1. 실제 Raw Program용 Eligibility Extraction / 구조화 데이터
-2. `/chat` LLM Provider와 API Contract
+1. `/chat` LLM Provider와 API Contract
+2. 전체 공고·별첨 Eligibility Coverage와 Human Evaluation
 3. Backend Hosting / Public 배포 방식
 4. Frontend Integration Contract 최종 연결
 
@@ -773,9 +808,9 @@ Mitigation:
 
 ## P0 — 다음 작업
 
-1. 실제 Raw Program Eligibility 구조화 baseline 결정
-2. `/chat` LLM Provider / API Contract Freeze
-3. Structured Result 기반 `/chat` + LLM 장애 Fallback 구현
+1. `/chat` LLM Provider / API Contract Freeze
+2. Structured Result 기반 `/chat` + LLM 장애 Fallback 구현
+3. 현재 20건 Extractor의 Human Review 및 미지원 Pattern 우선순위 결정
 
 ## P1 — Core User Flow
 
@@ -841,11 +876,11 @@ API                          VERIFIED LOCALLY
 Snapshot Retrieval           VERIFIED
 Program Normalization        VERIFIED
 Eligibility Model v0.1       IMPLEMENTED
-Eligibility Extraction       TODO
+Eligibility Extraction       BASELINE VERIFIED (20 RAW)
 Matching                     VERIFIED
 Calculation — Risk MVP       VERIFIED
 LLM                          TODO
-Tests                        47 PASSED
+Tests                        63 PASSED
 ```
 
 Infra:

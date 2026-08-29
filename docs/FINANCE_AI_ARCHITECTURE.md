@@ -269,9 +269,22 @@ Vector DB 사용은 아직 확정하지 않는다.
 
 # 6. Eligibility Constraint Extraction
 
-현재 Architecture에서 AI가 필요한 핵심 영역이다.
+2026-08-29 현재 실제 Raw Snapshot 20건에는 보수적인 deterministic Regex
+baseline을 먼저 적용한다. LLM Extraction은 아직 구현하지 않았다.
 
-기업마당의 `bsnsSumryCn`과 향후 원문 공고에서 자연어 조건을 추출한다.
+현재 baseline은 기업마당 `bsnsSumryCn`의 명시적 지원대상 구절에서 다음만
+구조화한다.
+
+* 구체 지역 / 소재지
+* 숫자로 명시된 연령 범위 또는 상·하한
+* 예비창업자
+* 숫자로 명시된 사업 업력과 YEAR / MONTH 단위
+* 명시적인 기존 사업체 상태
+
+`hashtags`와 coarse target인 `trgetNm`은 Eligibility Evidence로 사용하지 않는다.
+공고문·별첨 참조, 숫자 없는 청년 표현, 복잡한 업종·추천·교육·자격 및 불완전한
+OR 관계는 값을 추측하지 않고 Program-level `NEEDS_REVIEW`, `UNKNOWN` 또는
+`UNSUPPORTED`로 차단한다.
 
 예시 원문:
 
@@ -284,21 +297,9 @@ Vector DB 사용은 아직 확정하지 않는다.
 예비창업자 또는 창업 후 7년 이내
 ```
 
-이를 다음과 같은 구조로 변환하는 방향을 검토한다.
-
-```json
-{
-  "region": ["강원특별자치도 영월군"],
-  "region_rule": "RESIDENT_OR_MOVE_AFTER_SELECTION",
-  "age_min": 18,
-  "age_max": 45,
-  "business_status": [
-    "PRE_FOUNDER",
-    "EXISTING_BUSINESS"
-  ],
-  "business_age_max_years": 7
-}
-```
+완전한 대안 경로는 Eligibility Schema v0.1의 Group 내부 AND / Group 사이 OR로
+변환한다. 일부 Condition이 추출되었다는 이유만으로 Program 전체를 자동
+`SUPPORTED`로 올리지 않는다.
 
 중요:
 
@@ -312,12 +313,13 @@ Vector DB 사용은 아직 확정하지 않는다.
 
 ```text
 condition_type
-normalized_value
+operator + normalized operand
+raw_value
+unit
 source_field
 evidence_text
 extraction_method
-confidence
-validation_status
+extraction_status
 ```
 
 예:
@@ -325,18 +327,20 @@ validation_status
 ```json
 {
   "condition_type": "AGE",
-  "normalized_value": {
-    "min": 18,
-    "max": 45
-  },
+  "operator": "BETWEEN",
+  "min_value": 18,
+  "max_value": 45,
+  "unit": "YEAR",
+  "raw_value": "18세 이상 45세 이하",
   "source_field": "bsnsSumryCn",
   "evidence_text": "18세 이상 45세 이하",
-  "extraction_method": "LLM_EXTRACTION",
-  "validation_status": "PENDING"
+  "extraction_method": "REGEX",
+  "extraction_status": "SUPPORTED"
 }
 ```
 
 원문 Evidence 없이 구조화 값만 저장하는 방식은 피한다.
+Schema와 Regex baseline 자체가 추출 정확도를 보장한다고 주장하지 않는다.
 
 # 8. Deterministic Matching Engine
 

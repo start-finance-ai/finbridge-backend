@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.data.program_repository import ProgramRepository
+from app.eligibility.extractor import EligibilityExtractor
 from app.eligibility.matcher import EligibilityMatcher
 from app.schemas.eligibility import ProgramEligibility, ProgramExtractionStatus
 from app.schemas.matching import MatchResponse, SourceInfo, UserProfile
@@ -16,10 +17,12 @@ class ProgramService:
         self,
         repository: ProgramRepository,
         matcher: EligibilityMatcher | None = None,
+        extractor: EligibilityExtractor | None = None,
         eligibility_by_program_id: dict[str, ProgramEligibility] | None = None,
     ) -> None:
         self._repository = repository
         self._matcher = matcher or EligibilityMatcher()
+        self._extractor = extractor or EligibilityExtractor()
         self._eligibility_by_program_id = eligibility_by_program_id or {}
 
     def get_program(self, program_id: str) -> Program:
@@ -32,11 +35,16 @@ class ProgramService:
         program = self.get_program(program_id)
         eligibility = self._eligibility_by_program_id.get(program_id)
         if eligibility is None:
-            eligibility = ProgramEligibility(
-                program_id=program.program_id,
-                source_url=program.source_url,
-                eligibility_extraction_status=ProgramExtractionStatus.UNKNOWN,
-            )
+            try:
+                eligibility = self._extractor.extract(program)
+            except Exception:
+                # Extraction is an evidence-enrichment boundary. A failed baseline
+                # must degrade to UNKNOWN instead of taking down program retrieval.
+                eligibility = ProgramEligibility(
+                    program_id=program.program_id,
+                    source_url=program.source_url,
+                    eligibility_extraction_status=ProgramExtractionStatus.UNKNOWN,
+                )
 
         evaluation = self._matcher.match(eligibility, profile)
         return MatchResponse(

@@ -23,24 +23,51 @@ def test_get_invalid_program_detail_returns_404(client: ASGITestClient) -> None:
     assert response.json()["detail"]["error_code"] == "PROGRAM_NOT_FOUND"
 
 
-def test_match_actual_raw_program_is_unknown_not_fabricated(
+def test_match_actual_raw_program_with_reference_stays_needs_review(
     client: ASGITestClient,
 ) -> None:
     response = client.post(
         "/programs/match",
         json={
             "program_id": VALID_PROGRAM_ID,
-            "profile": {"user_type": "PRE_FOUNDER", "region": "강원특별자치도"},
+            "profile": {
+                "user_type": "PRE_FOUNDER",
+                "region": "영월군",
+                "business_region": "영월군",
+                "age": 30,
+                "pre_founder": True,
+            },
         },
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["program"]["program_id"] == VALID_PROGRAM_ID
-    assert payload["match_status"] == "UNKNOWN"
-    assert payload["condition_results"] == []
-    assert payload["evidence"] == []
+    assert payload["match_status"] == "NEEDS_REVIEW"
+    assert payload["condition_results"]
+    assert payload["evidence"]
     assert payload["source"]["source"] == "BIZINFO"
+
+
+def test_match_actual_supported_raw_program(client: ASGITestClient) -> None:
+    response = client.post(
+        "/programs/match",
+        json={
+            "program_id": "PBLN_000000000125612",
+            "profile": {
+                "region": "동구",
+                "business_region": "동구",
+                "age": 30,
+                "pre_founder": True,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["match_status"] == "MATCH"
+    assert len(payload["condition_results"]) == 3
+    assert len(payload["evidence"]) == 3
 
 
 def test_match_rejects_invalid_enum(client: ASGITestClient) -> None:
