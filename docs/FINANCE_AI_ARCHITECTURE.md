@@ -427,16 +427,11 @@ GET  /programs/{program_id}
 POST /programs/match
 POST /risk/calculate
 POST /income-stability/calculate
+POST /sales-analysis/analyze
 POST /chat
 ```
 
-현재 구현하지 않은 Endpoint:
-
-```text
-POST /sales/analyze
-```
-
-미구현 API를 제출 기능명세서에서 구현 완료로 기재하지 않는다.
+매출장표 업로드 계약은 `docs/SALES_UPLOAD_SCHEMA.md`를 따른다.
 
 # 13. Security / Secret Architecture
 
@@ -590,11 +585,10 @@ Core Public MVP 완료 전 다음을 추가하지 않는다.
 현재 우선순위:
 
 ```text
-1. 매출장표 CSV/XLSX 실제 업로드 분석
-2. 최신 디자이너 Frontend 반영 확인
-3. Frontend ↔ Backend Core API Integration
-4. Vercel Public Frontend
-5. Cross-origin / Public End-to-End QA
+1. 최신 디자이너 Frontend 반영 확인
+2. Frontend ↔ Backend Core API Integration
+3. Vercel Public Frontend
+4. Cross-origin / Public End-to-End QA
 ```
 
 단, 신규 Backend 기능이 기존 Public Backend 안정성을 위협하면 회귀 검증을 우선한다.

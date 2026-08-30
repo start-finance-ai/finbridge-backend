@@ -23,8 +23,8 @@ class ASGITestClient:
     def get(self, path: str) -> httpx.Response:
         return self.request("GET", path)
 
-    def post(self, path: str, *, json: Any) -> httpx.Response:
-        return self.request("POST", path, json=json)
+    def post(self, path: str, **kwargs: Any) -> httpx.Response:
+        return self.request("POST", path, **kwargs)
 
     def request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         async def send() -> httpx.Response:

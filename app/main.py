@@ -10,6 +10,7 @@ from app.api.health import router as health_router
 from app.api.income_stability import router as income_stability_router
 from app.api.programs import router as programs_router
 from app.api.risk import router as risk_router
+from app.api.sales_analysis import router as sales_analysis_router
 from app.config import (
     get_bizinfo_snapshot_path,
     get_cors_origins,
@@ -65,6 +66,7 @@ def create_app(ai_provider: AIProvider | None = None) -> FastAPI:
     application.include_router(income_stability_router)
     application.include_router(programs_router)
     application.include_router(risk_router)
+    application.include_router(sales_analysis_router)
     return application
 
 

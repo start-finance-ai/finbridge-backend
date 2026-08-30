@@ -47,14 +47,14 @@ Backend Public Deployment        VERIFIED
 Frontend API Integration         NOT YET
 Frontend Public Deployment       NOT YET
 Income Stability                 PUBLIC VERIFIED
-Sales Upload/Analysis            NOT YET
+Sales Upload/Analysis            VERIFIED LOCALLY
 Database                         NOT USED BY DESIGN
 ```
 
 현재 전체 Backend test 상태:
 
 ```text
-144 passed
+189 passed
 ```
 
 # 3. Backend Technology
@@ -67,6 +67,9 @@ Database                         NOT USED BY DESIGN
 - Uvicorn: `0.52.1`
 - pytest: `9.1.1`
 - OpenAI Python SDK: `3.6.0`
+- openpyxl: `3.1.5`
+- python-multipart: `0.0.32`
+- defusedxml: `0.7.1`
 - Dependency: `requirements.txt`
 
 Data Access:
@@ -93,13 +96,8 @@ GET  /programs/{program_id}
 POST /programs/match
 POST /risk/calculate
 POST /income-stability/calculate
+POST /sales-analysis/analyze
 POST /chat
-```
-
-## NOT IMPLEMENTED
-
-```text
-POST /sales/analyze
 ```
 
 # 5. Data / Collector Status
@@ -319,7 +317,7 @@ Risk 작업 완료 시 전체 test:
 이후 Regression 포함 현재 전체 test:
 
 ```text
-144 passed
+189 passed
 ```
 
 # 10.1 Freelancer Income Stability Status
@@ -372,6 +370,55 @@ Railway Public Smoke (2026-08-30):
 
 - 일반 6개월 입력 → HTTP 200, 평균 `3000000`, 모집단 표준편차 `129099.44`, CV `4.3`, 최저 `2800000`, 최고 `3200000`, disclaimer 정상
 - 전월 0원 입력 → HTTP 200, 평균 `0`, 표준편차 `0`, CV `null`, 최저·최고 `0`
+
+# 10.2 Sales Spreadsheet Analysis Status
+
+Status:
+
+```text
+IMPLEMENTED / VERIFIED LOCALLY / PUBLIC NOT YET
+```
+
+Endpoint:
+
+```text
+POST /sales-analysis/analyze
+Content-Type: multipart/form-data
+```
+
+구현:
+
+- FinBridge Sample Schema 기반 `.csv`, `.xlsx` 실제 업로드 분석
+- CSV UTF-8 / UTF-8-SIG / CP949 지원
+- XLSX required-column sheet 탐색; 유효 sheet 복수이면 모호성 오류
+- canonical/명시적 한국어 alias header만 지원
+- 최대 파일 5 MB, 최대 데이터 50,000행
+- Decimal 기반 월별 집계, 평균, 합계, 최고·최저 월, 모집단 표준편차/CV
+- 연속 최근 6개월의 최근 3개월 대 직전 3개월 추세
+- 최근 월 MoM 및 계산 불가 reason
+- missing calendar month 탐지; 0원 month 자동 생성 없음
+- Data Quality metadata와 구조화 validation error
+- 실제 업로드 성공 시 `is_demo=false`, currency `KRW`
+- 업로드 원문 영구 저장·로그·LLM 전달 없음
+- openpyxl read-only/data-only와 defusedxml XML 보호 사용
+
+계약 문서:
+
+```text
+docs/SALES_UPLOAD_SCHEMA.md
+```
+
+검증:
+
+```text
+Sales Analysis tests  45 passed
+Full Backend tests    189 passed
+```
+
+현재 미검증:
+
+- Railway Public multipart upload smoke
+- Frontend 실제 파일 업로드 연동
 
 # 11. AI / Chat Status
 
@@ -588,11 +635,10 @@ Frontend에서는 로컬 실행을 위해 만든:
 
 ## P0
 
-1. 매출장표 CSV/XLSX 실제 업로드 분석
-2. 최신 디자이너 Frontend 반영 확인
-3. Frontend ↔ Backend 연동
-4. Vercel Public Deployment
-5. Public End-to-End QA
+1. 최신 디자이너 Frontend 반영 확인
+2. Frontend ↔ Backend 연동
+3. Vercel Public Deployment
+4. Public End-to-End QA
 
 ## P1
 
@@ -614,11 +660,10 @@ Frontend에서는 로컬 실행을 위해 만든:
 현재 순서:
 
 ```text
-1. 매출장표 CSV/XLSX 실제 업로드 분석
-2. 최신 디자이너 Frontend 반영 확인
-3. Frontend ↔ Backend 연동
-4. Vercel Public Deployment
-5. Public E2E QA
+1. 최신 디자이너 Frontend 반영 확인
+2. Frontend ↔ Backend 연동
+3. Vercel Public Deployment
+4. Public E2E QA
 ```
 
 # 18. Submission Rule
