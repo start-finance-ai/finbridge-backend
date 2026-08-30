@@ -12,8 +12,8 @@ Last Updated: 2026-08-30
 Current Phase:
 
 ```text
-G4 — Core Backend Implemented / Verified
-→ G5 Public Deployment + Frontend Integration
+G5 — Backend Public Deployment Verified
+→ Remaining Backend Features + Frontend Integration
 ```
 
 [TEAM DECISION]
@@ -43,7 +43,7 @@ OpenAI /chat                     VERIFIED
 Template Fallback                VERIFIED
 program_id Chat Context          VERIFIED
 Frontend Local Build/Dev         VERIFIED
-Backend Public Deployment        NOT YET
+Backend Public Deployment        VERIFIED
 Frontend API Integration         NOT YET
 Frontend Public Deployment       NOT YET
 Income Stability                 NOT YET
@@ -374,7 +374,8 @@ Railway Public `/chat` LLM Smoke (2026-08-30):
 - 기존 `max_output_tokens=500`에서 문장 중간 truncation 관찰
 - 기본값을 `900`으로 상향하고 `OPENAI_MAX_OUTPUT_TOKENS` 환경변수로 조정 가능하게 보정
 - 로컬 provider 및 `/chat` contract regression test 통과
-- 변경 후 Railway Public 재배포 smoke는 아직 수행 전
+- Railway 재배포 후 동일 Public `/chat` smoke 재검증 완료
+- `reply_source=LLM`, `model=gpt-5.6-luna` 및 문장 절단 현상 해소 확인
 
 Provider failure:
 
@@ -465,7 +466,7 @@ Railway PostgreSQL은 현재 추가하지 않는다.
 Backend Public URL:
 
 ```text
-CREATED / /chat LLM SMOKE VERIFIED
+DEPLOYED / PUBLIC HTTPS VERIFIED
 ```
 
 Frontend Public URL:
@@ -474,16 +475,17 @@ Frontend Public URL:
 NOT CREATED / NOT VERIFIED
 ```
 
-## Railway Deployment Preparation
+## Railway Public Deployment
 
 Status:
 
 ```text
-VERIFIED LOCALLY / PUBLIC /chat LLM SMOKE VERIFIED
+PUBLIC VERIFIED
 ```
 
 구현·검증:
 
+- Region = Southeast Asia / Singapore
 - Railway Dashboard-based deployment contract 확정
 - Builder = Railpack
 - `.python-version` = `3.14.3`
@@ -497,38 +499,31 @@ VERIFIED LOCALLY / PUBLIC /chat LLM SMOKE VERIFIED
 - Secret·`.env`·runtime Snapshot 없는 clean venv/import 성공
 - 실제 Uvicorn TCP 기동 후 `/health`, `/programs`, `/chat` template fallback,
   `/risk/calculate`, allowed/disallowed CORS 검증
+- Public HTTPS Backend 정상 접근
+- Public `GET /health` → HTTP 200, `{"status":"ok","service":"FinBridge"}`
+- Public `GET /programs?query=창업&limit=5` → HTTP 200, BIZINFO 지원사업 5건
+- Public `POST /risk/calculate` → HTTP 200, deterministic calculation 정상
+- Public `POST /chat` → HTTP 200, `reply_source=LLM`, `model=gpt-5.6-luna`
+- Public `/chat` Retrieval / Evidence / Source 유지
+- 출력 토큰 보정 재배포 후 Public `/chat` 문장 절단 현상 해소 확인
 
 Config as Code 파일과 `.railway/railway.ts`는 사용하지 않는다. 현재 상태는 Railway
-Dashboard-based deployment preparation `VERIFIED LOCALLY`이며, Public `/chat`에서
-OpenAI LLM·Retrieval·Evidence·Source smoke를 확인했다. 전체 Public endpoint와 변경된
-출력 토큰 설정의 재배포 후 smoke는 별도로 완료해야 한다. `MISE_PYTHON_COMPILE=1`은
-사전 설정하지 않는다.
+Dashboard-based deployment 및 Public HTTPS smoke `VERIFIED`이다. `/health`, `/programs`,
+`/risk/calculate`, `/chat`을 외부에서 검증했고, 출력 토큰 보정 재배포 후 `/chat`도
+재검증했다. `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
 
 현재 배포 P0:
 
 - 최종 Vercel URL 확정 후 CORS Variable 설정
-- `/health` public verification
-- Bootstrap production load
-- 응답 truncation 보정 배포 후 Public `/chat` 재검증
-- Public `/programs`, `/risk/calculate` smoke
+- 최신 디자이너 Frontend 반영 확인
+- Frontend ↔ Backend 연동
+- Vercel Public Deployment
+- Public End-to-End QA
 
 # 15. Current Repository / Git Note
 
-Backend Bootstrap 작업 최종 보고 시 변경사항:
-
-- `data/bootstrap/`
-- bootstrap tests / fixture
-- config / docs 업데이트
-
-가 unstaged 상태였다.
-
-따라서 다음 작업 시작 전:
-
-```text
-git status
-```
-
-로 현재 실제 상태를 반드시 확인한다.
+이번 문서 최신화 시작 전 `git status`는 clean이었다.
+이번 작업은 문서만 수정하며 commit / push는 수행하지 않는다.
 
 Frontend에서는 로컬 실행을 위해 만든:
 
@@ -542,20 +537,17 @@ Frontend에서는 로컬 실행을 위해 만든:
 
 ## P0
 
-1. Backend Bootstrap 변경분 Git 반영 여부 확인
-2. Railway Backend Public Deployment
-3. Production CORS
-4. 회의 이후 최신 Frontend 디자인 반영
-5. Frontend API Integration
-6. Vercel Frontend Public Deployment
-7. Public End-to-End QA
+1. 프리랜서 소득 안정성 deterministic 기능
+2. 매출장표 CSV/XLSX 실제 업로드 분석
+3. 최신 디자이너 Frontend 반영 확인
+4. Frontend ↔ Backend 연동
+5. Vercel Public Deployment
+6. Public End-to-End QA
 
 ## P1
 
 - 대표 Demo 공고 5~10건 Human Review
 - Profile/개인정보 외부 LLM 전달 정책 최소 확정
-- 프리랜서 소득 안정성
-- 매출장표 실제 구현 또는 명시적 `DEMO SAMPLE`
 
 ## Not Current Blocker
 
@@ -572,18 +564,12 @@ Frontend에서는 로컬 실행을 위해 만든:
 현재 순서:
 
 ```text
-1. 최신 문서 반영
-2. Bootstrap Git 상태 확인 / commit
-3. Railway deployment-ready audit
-4. Railway Public Backend 생성
-5. Public Backend smoke
-6. 최신 Frontend 디자인 pull
-7. Frontend ↔ Backend Core Integration
-8. Vercel 배포
-9. Public E2E QA
-10. 시간이 허용되면 Income Stability
-11. Sales 실제 분석 구현 여부 최종 판단
-12. 최종 기능명세서 / 기획서
+1. 프리랜서 소득 안정성 deterministic 기능
+2. 매출장표 CSV/XLSX 실제 업로드 분석
+3. 최신 디자이너 Frontend 반영 확인
+4. Frontend ↔ Backend 연동
+5. Vercel Public Deployment
+6. Public E2E QA
 ```
 
 # 18. Submission Rule

@@ -590,15 +590,12 @@ Core Public MVP 완료 전 다음을 추가하지 않는다.
 현재 우선순위:
 
 ```text
-1. Backend Railway deployment-ready 점검
-2. Backend Public URL 실제 배포 / 외부 smoke
-3. 회의 이후 최신 Frontend 디자인 수령
+1. 프리랜서 소득 안정성 deterministic 기능
+2. 매출장표 CSV/XLSX 실제 업로드 분석
+3. 최신 디자이너 Frontend 반영 확인
 4. Frontend ↔ Backend Core API Integration
 5. Vercel Public Frontend
 6. Cross-origin / Public End-to-End QA
-7. 프리랜서 소득 안정성
-8. 매출장표 실제 구현 가능 여부 판단
-9. 최종 기능명세서 / 기획서
 ```
 
-단, 7~8이 Public URL 안정성을 위협하면 핵심 흐름과 배포 QA를 우선한다.
+단, 신규 Backend 기능이 기존 Public Backend 안정성을 위협하면 회귀 검증을 우선한다.
