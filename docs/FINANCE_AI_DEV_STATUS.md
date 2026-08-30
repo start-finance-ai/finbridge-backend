@@ -47,7 +47,7 @@ Backend Public Deployment        VERIFIED
 Frontend API Integration         NOT YET
 Frontend Public Deployment       NOT YET
 Income Stability                 PUBLIC VERIFIED
-Sales Upload/Analysis            VERIFIED LOCALLY
+Sales Upload/Analysis            PUBLIC VERIFIED
 Database                         NOT USED BY DESIGN
 ```
 
@@ -376,7 +376,7 @@ Railway Public Smoke (2026-08-30):
 Status:
 
 ```text
-IMPLEMENTED / VERIFIED LOCALLY / PUBLIC NOT YET
+IMPLEMENTED / VERIFIED LOCALLY / PUBLIC VERIFIED
 ```
 
 Endpoint:
@@ -415,9 +415,14 @@ Sales Analysis tests  45 passed
 Full Backend tests    189 passed
 ```
 
+Railway Public Smoke (2026-08-30):
+
+- CSV → HTTP 200, `is_demo=false`, `source_format=CSV`, monthly series·평균·summary·최근 추세·변동성·MoM·Data Quality 정상, missing months·warnings 없음
+- XLSX → HTTP 200, `is_demo=false`, `source_format=XLSX`, `sheet_name=매출`, monthly series·평균·summary·최근 추세·변동성·MoM·Data Quality 정상
+- `sales_amount` 필수 컬럼 누락 CSV → `REQUIRED_COLUMN_MISSING`, field `sales_amount`, missing columns `["sales_amount"]` 확인
+
 현재 미검증:
 
-- Railway Public multipart upload smoke
 - Frontend 실제 파일 업로드 연동
 
 # 11. AI / Chat Status
