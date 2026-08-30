@@ -46,7 +46,7 @@ Frontend Local Build/Dev         VERIFIED
 Backend Public Deployment        VERIFIED
 Frontend API Integration         NOT YET
 Frontend Public Deployment       NOT YET
-Income Stability                 VERIFIED LOCALLY
+Income Stability                 PUBLIC VERIFIED
 Sales Upload/Analysis            NOT YET
 Database                         NOT USED BY DESIGN
 ```
@@ -327,7 +327,7 @@ Risk 작업 완료 시 전체 test:
 Status:
 
 ```text
-IMPLEMENTED / VERIFIED LOCALLY / PUBLIC NOT YET
+IMPLEMENTED / VERIFIED LOCALLY / PUBLIC VERIFIED
 ```
 
 Endpoint:
@@ -367,6 +367,11 @@ Deterministic calculation:
 Income Stability tests  13 passed
 Full Backend tests      144 passed
 ```
+
+Railway Public Smoke (2026-08-30):
+
+- 일반 6개월 입력 → HTTP 200, 평균 `3000000`, 모집단 표준편차 `129099.44`, CV `4.3`, 최저 `2800000`, 최고 `3200000`, disclaimer 정상
+- 전월 0원 입력 → HTTP 200, 평균 `0`, 표준편차 `0`, CV `null`, 최저·최고 `0`
 
 # 11. AI / Chat Status
 
