@@ -263,6 +263,7 @@ def test_openai_provider_uses_responses_api_with_low_reasoning() -> None:
     assert result.text == "설명"
     assert fake_responses.kwargs["model"] == "gpt-5.6-luna"
     assert fake_responses.kwargs["reasoning"] == {"effort": "low"}
+    assert fake_responses.kwargs["max_output_tokens"] == 900
     assert fake_responses.kwargs["store"] is False
 
 
@@ -272,10 +273,23 @@ def test_openai_settings_environment_override_does_not_expose_key_in_repr(
     monkeypatch.setenv("OPENAI_API_KEY", "secret-for-test")
     monkeypatch.setenv("OPENAI_MODEL", "test-model")
     monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "4.5")
+    monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", "950")
 
     settings = get_openai_settings()
 
     assert settings.api_key == "secret-for-test"
     assert settings.model == "test-model"
     assert settings.timeout_seconds == 4.5
+    assert settings.max_output_tokens == 950
     assert "secret-for-test" not in repr(settings)
+
+
+@pytest.mark.parametrize("value", ["invalid", "0", "-1"])
+def test_openai_max_output_tokens_invalid_value_uses_default(
+    value, monkeypatch
+) -> None:
+    monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", value)
+
+    settings = get_openai_settings()
+
+    assert settings.max_output_tokens == 900

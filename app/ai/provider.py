@@ -66,7 +66,7 @@ class OpenAIProvider:
                 instructions=instructions,
                 input=input_text,
                 reasoning={"effort": "low"},
-                max_output_tokens=500,
+                max_output_tokens=self._settings.max_output_tokens,
                 store=False,
             )
         except openai.APITimeoutError as exc:

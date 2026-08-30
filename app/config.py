@@ -32,6 +32,7 @@ class OpenAISettings:
     api_key: str | None = field(repr=False)
     model: str = "gpt-5.6-luna"
     timeout_seconds: float = 10.0
+    max_output_tokens: int = 900
 
 
 def get_openai_settings() -> OpenAISettings:
@@ -42,10 +43,18 @@ def get_openai_settings() -> OpenAISettings:
         timeout_seconds = 10.0
     if timeout_seconds <= 0:
         timeout_seconds = 10.0
+    max_output_tokens_text = get_setting("OPENAI_MAX_OUTPUT_TOKENS") or "900"
+    try:
+        max_output_tokens = int(max_output_tokens_text)
+    except ValueError:
+        max_output_tokens = 900
+    if max_output_tokens <= 0:
+        max_output_tokens = 900
     return OpenAISettings(
         api_key=get_setting("OPENAI_API_KEY"),
         model=get_setting("OPENAI_MODEL") or "gpt-5.6-luna",
         timeout_seconds=timeout_seconds,
+        max_output_tokens=max_output_tokens,
     )
 
 

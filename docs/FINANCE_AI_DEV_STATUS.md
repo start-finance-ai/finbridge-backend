@@ -1,6 +1,6 @@
 # FINANCE AI — Development Status
 
-Last Updated: 2026-08-29
+Last Updated: 2026-08-30
 
 이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
 
@@ -54,7 +54,7 @@ Database                         NOT USED BY DESIGN
 현재 전체 Backend test 상태:
 
 ```text
-128 passed
+131 passed
 ```
 
 # 3. Backend Technology
@@ -319,7 +319,7 @@ Risk 작업 완료 시 전체 test:
 이후 Regression 포함 현재 전체 test:
 
 ```text
-122 passed
+131 passed
 ```
 
 # 11. AI / Chat Status
@@ -365,6 +365,16 @@ OpenAI Live Smoke:
 - non-empty reply
 - latency 약 4.3초
 - API Key 노출 없음
+
+Railway Public `/chat` LLM Smoke (2026-08-30):
+
+- OpenAI Responses API 호출 성공 (`gpt-5.6-luna`)
+- `reply_source=LLM`, non-empty reply 확인
+- Retrieval / Evidence / Source 유지 확인
+- 기존 `max_output_tokens=500`에서 문장 중간 truncation 관찰
+- 기본값을 `900`으로 상향하고 `OPENAI_MAX_OUTPUT_TOKENS` 환경변수로 조정 가능하게 보정
+- 로컬 provider 및 `/chat` contract regression test 통과
+- 변경 후 Railway Public 재배포 smoke는 아직 수행 전
 
 Provider failure:
 
@@ -455,7 +465,7 @@ Railway PostgreSQL은 현재 추가하지 않는다.
 Backend Public URL:
 
 ```text
-NOT CREATED / NOT VERIFIED
+CREATED / /chat LLM SMOKE VERIFIED
 ```
 
 Frontend Public URL:
@@ -469,7 +479,7 @@ NOT CREATED / NOT VERIFIED
 Status:
 
 ```text
-VERIFIED LOCALLY / PUBLIC NOT VERIFIED
+VERIFIED LOCALLY / PUBLIC /chat LLM SMOKE VERIFIED
 ```
 
 구현·검증:
@@ -489,18 +499,18 @@ VERIFIED LOCALLY / PUBLIC NOT VERIFIED
   `/risk/calculate`, allowed/disallowed CORS 검증
 
 Config as Code 파일과 `.railway/railway.ts`는 사용하지 않는다. 현재 상태는 Railway
-Dashboard-based deployment preparation `VERIFIED LOCALLY`, Public Deployment
-`NOT VERIFIED`이다. Python `3.14.3` Railway 실제 build는 Public deployment에서 최종
-검증하며, `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
+Dashboard-based deployment preparation `VERIFIED LOCALLY`이며, Public `/chat`에서
+OpenAI LLM·Retrieval·Evidence·Source smoke를 확인했다. 전체 Public endpoint와 변경된
+출력 토큰 설정의 재배포 후 smoke는 별도로 완료해야 한다. `MISE_PYTHON_COMPILE=1`은
+사전 설정하지 않는다.
 
 현재 배포 P0:
 
-- Railway GitHub service 생성 및 Domain 발급
 - 최종 Vercel URL 확정 후 CORS Variable 설정
 - `/health` public verification
-- OpenAI Secret configuration
 - Bootstrap production load
-- Public `/programs`, `/chat`, `/risk/calculate` smoke
+- 응답 truncation 보정 배포 후 Public `/chat` 재검증
+- Public `/programs`, `/risk/calculate` smoke
 
 # 15. Current Repository / Git Note
 
