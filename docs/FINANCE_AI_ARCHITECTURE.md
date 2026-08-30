@@ -426,13 +426,13 @@ GET  /programs
 GET  /programs/{program_id}
 POST /programs/match
 POST /risk/calculate
+POST /income-stability/calculate
 POST /chat
 ```
 
 현재 구현하지 않은 Endpoint:
 
 ```text
-POST /income-stability/calculate
 POST /sales/analyze
 ```
 
@@ -590,12 +590,11 @@ Core Public MVP 완료 전 다음을 추가하지 않는다.
 현재 우선순위:
 
 ```text
-1. 프리랜서 소득 안정성 deterministic 기능
-2. 매출장표 CSV/XLSX 실제 업로드 분석
-3. 최신 디자이너 Frontend 반영 확인
-4. Frontend ↔ Backend Core API Integration
-5. Vercel Public Frontend
-6. Cross-origin / Public End-to-End QA
+1. 매출장표 CSV/XLSX 실제 업로드 분석
+2. 최신 디자이너 Frontend 반영 확인
+3. Frontend ↔ Backend Core API Integration
+4. Vercel Public Frontend
+5. Cross-origin / Public End-to-End QA
 ```
 
 단, 신규 Backend 기능이 기존 Public Backend 안정성을 위협하면 회귀 검증을 우선한다.

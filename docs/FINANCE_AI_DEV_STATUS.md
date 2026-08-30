@@ -46,7 +46,7 @@ Frontend Local Build/Dev         VERIFIED
 Backend Public Deployment        VERIFIED
 Frontend API Integration         NOT YET
 Frontend Public Deployment       NOT YET
-Income Stability                 NOT YET
+Income Stability                 VERIFIED LOCALLY
 Sales Upload/Analysis            NOT YET
 Database                         NOT USED BY DESIGN
 ```
@@ -54,7 +54,7 @@ Database                         NOT USED BY DESIGN
 현재 전체 Backend test 상태:
 
 ```text
-131 passed
+144 passed
 ```
 
 # 3. Backend Technology
@@ -92,13 +92,13 @@ GET  /programs
 GET  /programs/{program_id}
 POST /programs/match
 POST /risk/calculate
+POST /income-stability/calculate
 POST /chat
 ```
 
 ## NOT IMPLEMENTED
 
 ```text
-POST /income-stability/calculate
 POST /sales/analyze
 ```
 
@@ -319,7 +319,53 @@ Risk 작업 완료 시 전체 test:
 이후 Regression 포함 현재 전체 test:
 
 ```text
-131 passed
+144 passed
+```
+
+# 10.1 Freelancer Income Stability Status
+
+Status:
+
+```text
+IMPLEMENTED / VERIFIED LOCALLY / PUBLIC NOT YET
+```
+
+Endpoint:
+
+```text
+POST /income-stability/calculate
+```
+
+입력·검증:
+
+- 최근 6개월 월별 소득을 정확히 6개 입력
+- 각 소득은 숫자이며 0 이상
+- 0원인 달 허용, 음수·5개·7개 입력은 HTTP 422
+- 결측값 보정 없음
+
+Deterministic calculation:
+
+- 평균 = `sum(monthly_incomes) / 6`
+- 모집단 분산 = `Σ(x - mean)^2 / 6`
+- 모집단 표준편차 = `sqrt(variance)`
+- 변동계수(%) = `standard_deviation / mean * 100`
+- 평균이 0이면 변동계수는 `null`
+- 최저·최고 월 소득 반환
+- 내부 계산은 `Decimal`, 최종 금액·비율 응답은 소수 둘째 자리 `ROUND_HALF_UP`
+
+제한:
+
+- LLM 호출 없음
+- 소득 데이터 저장 없음
+- 안정/주의/위험 등급 또는 금융점수 생성 없음
+- 계약 지속성·세금·부채·신용정보 미반영
+- 금융기관의 소득 인정·신용평가를 의미하지 않는 disclaimer 반환
+
+검증:
+
+```text
+Income Stability tests  13 passed
+Full Backend tests      144 passed
 ```
 
 # 11. AI / Chat Status
@@ -537,12 +583,11 @@ Frontend에서는 로컬 실행을 위해 만든:
 
 ## P0
 
-1. 프리랜서 소득 안정성 deterministic 기능
-2. 매출장표 CSV/XLSX 실제 업로드 분석
-3. 최신 디자이너 Frontend 반영 확인
-4. Frontend ↔ Backend 연동
-5. Vercel Public Deployment
-6. Public End-to-End QA
+1. 매출장표 CSV/XLSX 실제 업로드 분석
+2. 최신 디자이너 Frontend 반영 확인
+3. Frontend ↔ Backend 연동
+4. Vercel Public Deployment
+5. Public End-to-End QA
 
 ## P1
 
@@ -564,12 +609,11 @@ Frontend에서는 로컬 실행을 위해 만든:
 현재 순서:
 
 ```text
-1. 프리랜서 소득 안정성 deterministic 기능
-2. 매출장표 CSV/XLSX 실제 업로드 분석
-3. 최신 디자이너 Frontend 반영 확인
-4. Frontend ↔ Backend 연동
-5. Vercel Public Deployment
-6. Public E2E QA
+1. 매출장표 CSV/XLSX 실제 업로드 분석
+2. 최신 디자이너 Frontend 반영 확인
+3. Frontend ↔ Backend 연동
+4. Vercel Public Deployment
+5. Public E2E QA
 ```
 
 # 18. Submission Rule

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.ai.provider import AIProvider, OpenAIProvider
 from app.api.chat import router as chat_router
 from app.api.health import router as health_router
+from app.api.income_stability import router as income_stability_router
 from app.api.programs import router as programs_router
 from app.api.risk import router as risk_router
 from app.config import (
@@ -61,6 +62,7 @@ def create_app(ai_provider: AIProvider | None = None) -> FastAPI:
 
     application.include_router(health_router)
     application.include_router(chat_router)
+    application.include_router(income_stability_router)
     application.include_router(programs_router)
     application.include_router(risk_router)
     return application
