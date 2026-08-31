@@ -3,13 +3,15 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Iterable
+from collections.abc import Callable
+from datetime import date
 
 from app.schemas.eligibility import (
     Condition,
     ConditionType,
     ExtractionStatus,
 )
-from app.schemas.matching import BusinessStatus, UserType
+from app.schemas.matching import BusinessStatus, MatchStatus, UserType
 from app.schemas.program import Program
 from app.schemas.retrieval import (
     ProgramSearchProgram,
@@ -18,6 +20,13 @@ from app.schemas.retrieval import (
     ProgramSearchResult,
 )
 from app.services.program_service import ProgramService
+from app.utils.date_parser import (
+    ApplicationAvailability,
+    ApplicationStatus,
+    DeadlineType,
+    calculate_application_availability,
+    seoul_today,
+)
 
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
@@ -119,6 +128,8 @@ _MATCHED_FIELD_ORDER = {
             "region",
             "structured.region",
             "structured.business_status",
+            "structured.age",
+            "structured.business_age",
             "user_type",
             "structured.user_type",
             "industry",
@@ -133,8 +144,14 @@ _MATCHED_FIELD_ORDER = {
 
 
 class ProgramRetrievalService:
-    def __init__(self, program_service: ProgramService) -> None:
+    def __init__(
+        self,
+        program_service: ProgramService,
+        *,
+        today_provider: Callable[[], date] | None = None,
+    ) -> None:
         self._program_service = program_service
+        self._today_provider = today_provider or seoul_today
 
     @staticmethod
     def is_program_search_intent(message: str) -> bool:
@@ -151,6 +168,7 @@ class ProgramRetrievalService:
 
     def search(self, request: ProgramSearchRequest) -> ProgramSearchResponse:
         results: list[ProgramSearchResult] = []
+        today = self._today_provider()
         terms = query_terms(request.query) if request.query else []
         generic_intent_only = bool(
             request.query
@@ -158,6 +176,17 @@ class ProgramRetrievalService:
             and self.is_program_search_intent(request.query)
         )
         for program in self._program_service.list_programs():
+            availability = calculate_application_availability(
+                deadline_type=program.deadline_type,
+                apply_start=program.apply_start,
+                apply_end=program.apply_end,
+                today=today,
+            )
+            if request.open_now_only and availability.status in {
+                ApplicationStatus.CLOSED,
+                ApplicationStatus.UPCOMING,
+            }:
+                continue
             conditions = self._matching_conditions(program.program_id)
             filtered, structured_score, structured_fields = self._structured_filter(
                 program, conditions, request
@@ -177,7 +206,7 @@ class ProgramRetrievalService:
             )
             results.append(
                 ProgramSearchResult(
-                    program=self._summary(program),
+                    program=self._summary(program, availability),
                     retrieval_score=structured_score + keyword_score,
                     matched_fields=matched_fields,
                     source=program.source,
@@ -185,12 +214,15 @@ class ProgramRetrievalService:
                 )
             )
 
-        results.sort(
-            key=lambda result: (
-                -result.retrieval_score,
-                result.program.program_id,
+        if request.sort_by_deadline:
+            results.sort(key=self._deadline_sort_key)
+        else:
+            results.sort(
+                key=lambda result: (
+                    -result.retrieval_score,
+                    result.program.program_id,
+                )
             )
-        )
         limited = results[: request.limit]
         return ProgramSearchResponse(
             results=limited,
@@ -302,6 +334,31 @@ class ProgramRetrievalService:
                 matched_fields.add("industry")
             else:
                 return True, 0, set()
+
+        if request.profile is not None:
+            filter_profile = request.profile.model_copy(
+                update={
+                    "region": None,
+                    "business_region": None,
+                    "industry": None,
+                }
+            )
+            match = self._program_service.match_program(
+                program.program_id, filter_profile
+            )
+            if match.match_status is MatchStatus.NO_MATCH:
+                return True, 0, set()
+            matched_types = {
+                result.condition_type
+                for result in match.condition_results
+                if result.status is MatchStatus.MATCH and not result.is_exclusion
+            }
+            if ConditionType.AGE in matched_types:
+                score += 35
+                matched_fields.add("structured.age")
+            if ConditionType.BUSINESS_AGE in matched_types:
+                score += 35
+                matched_fields.add("structured.business_age")
 
         return False, score, matched_fields
 
@@ -417,7 +474,10 @@ class ProgramRetrievalService:
         return score, matched_fields
 
     @staticmethod
-    def _summary(program: Program) -> ProgramSearchProgram:
+    def _summary(
+        program: Program,
+        availability: ApplicationAvailability,
+    ) -> ProgramSearchProgram:
         return ProgramSearchProgram(
             program_id=program.program_id,
             program_name=program.program_name,
@@ -431,6 +491,37 @@ class ProgramRetrievalService:
             apply_end=program.apply_end,
             apply_period_text=program.apply_period_text,
             deadline_type=program.deadline_type,
+            application_status=availability.status,
+            application_status_note=availability.note,
+        )
+
+    @staticmethod
+    def _deadline_sort_key(result: ProgramSearchResult) -> tuple[object, ...]:
+        program = result.program
+        if (
+            program.application_status is ApplicationStatus.OPEN
+            and program.deadline_type is DeadlineType.FIXED_DATE
+            and program.apply_end is not None
+        ):
+            status_rank = 0
+            deadline = program.apply_end
+        elif program.application_status is ApplicationStatus.OPEN:
+            status_rank = 1
+            deadline = date.max
+        elif program.application_status is ApplicationStatus.NEEDS_CONFIRMATION:
+            status_rank = 2
+            deadline = date.max
+        elif program.application_status is ApplicationStatus.UPCOMING:
+            status_rank = 3
+            deadline = program.apply_start or date.max
+        else:
+            status_rank = 4
+            deadline = program.apply_end or date.max
+        return (
+            status_rank,
+            deadline,
+            -result.retrieval_score,
+            program.program_id,
         )
 
 

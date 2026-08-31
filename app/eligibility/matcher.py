@@ -26,6 +26,47 @@ from app.schemas.matching import (
 
 
 _MISSING = object()
+_REGION_PREFIXES = {
+    "서울특별시": "서울",
+    "부산광역시": "부산",
+    "대구광역시": "대구",
+    "인천광역시": "인천",
+    "광주광역시": "광주",
+    "대전광역시": "대전",
+    "울산광역시": "울산",
+    "세종특별자치시": "세종",
+    "경기도": "경기",
+    "강원특별자치도": "강원",
+    "강원도": "강원",
+    "충청북도": "충북",
+    "충청남도": "충남",
+    "전북특별자치도": "전북",
+    "전라북도": "전북",
+    "전라남도": "전남",
+    "경상북도": "경북",
+    "경상남도": "경남",
+    "제주특별자치도": "제주",
+    "제주도": "제주",
+}
+_TOP_LEVEL_REGIONS = {
+    "서울",
+    "부산",
+    "대구",
+    "인천",
+    "광주",
+    "대전",
+    "울산",
+    "세종",
+    "경기",
+    "강원",
+    "충북",
+    "충남",
+    "전북",
+    "전남",
+    "경북",
+    "경남",
+    "제주",
+}
 
 
 class EligibilityMatcher:
@@ -215,7 +256,24 @@ class EligibilityMatcher:
                 evidence,
             )
 
-        predicate_result = self._evaluate_predicate(condition, actual_value)
+        if (
+            condition.condition_type is ConditionType.REGION_OR_LOCATION
+            and condition.operator is Operator.EQ
+            and isinstance(condition.value, str)
+        ):
+            region_result = _compare_region_scope(actual_value, condition.value)
+            if region_result is None:
+                return self._result(
+                    condition,
+                    MatchStatus.NEEDS_REVIEW,
+                    is_exclusion,
+                    actual_value,
+                    "REGION_DETAIL_REQUIRED",
+                    evidence,
+                )
+            predicate_result = region_result
+        else:
+            predicate_result = self._evaluate_predicate(condition, actual_value)
         return self._result(
             condition,
             MatchStatus.MATCH if predicate_result else MatchStatus.NO_MATCH,
@@ -260,6 +318,13 @@ class EligibilityMatcher:
                 return True
             if profile.business_status is BusinessStatus.PRE_FOUNDER:
                 return True
+            if profile.user_type is UserType.SMALL_BUSINESS_OWNER:
+                return False
+            if profile.business_status in {
+                BusinessStatus.REGISTERED,
+                BusinessStatus.EXISTING_BUSINESS,
+            }:
+                return False
             return _MISSING
         if condition_type is ConditionType.BUSINESS_REGISTRATION_STATUS:
             return profile.business_status or _MISSING
@@ -356,3 +421,46 @@ class EligibilityMatcher:
         if isinstance(actual, str) and isinstance(expected, str):
             return actual.strip().casefold() == expected.strip().casefold()
         return actual == expected
+
+
+def _compare_region_scope(actual: Any, expected: str) -> bool | None:
+    if not isinstance(actual, str):
+        return False
+    normalized_actual = _normalize_region(actual)
+    normalized_expected = _normalize_region(expected)
+    if normalized_actual == normalized_expected:
+        return True
+
+    actual_top = _top_level_region(normalized_actual)
+    expected_top = _top_level_region(normalized_expected)
+    if actual_top is None or expected_top is None:
+        return None
+    if actual_top != expected_top:
+        return False
+
+    actual_has_detail = normalized_actual != actual_top
+    expected_has_detail = normalized_expected != expected_top
+    if not actual_has_detail and expected_has_detail:
+        return None
+    if actual_has_detail and not expected_has_detail:
+        return True
+    return False
+
+
+def _normalize_region(value: str) -> str:
+    normalized = " ".join(value.strip().split())
+    for source, target in _REGION_PREFIXES.items():
+        if normalized == source or normalized.startswith(source + " "):
+            return target + normalized[len(source) :]
+    return normalized
+
+
+def _top_level_region(value: str) -> str | None:
+    return next(
+        (
+            region
+            for region in _TOP_LEVEL_REGIONS
+            if value == region or value.startswith(region + " ")
+        ),
+        None,
+    )

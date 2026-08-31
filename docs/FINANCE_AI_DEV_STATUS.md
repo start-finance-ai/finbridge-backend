@@ -1,6 +1,6 @@
 # FINANCE AI — Development Status
 
-Last Updated: 2026-08-30
+Last Updated: 2026-08-31
 
 이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
 
@@ -54,7 +54,7 @@ Database                         NOT USED BY DESIGN
 현재 전체 Backend test 상태:
 
 ```text
-189 passed
+215 passed
 ```
 
 # 3. Backend Technology
@@ -317,7 +317,7 @@ Risk 작업 완료 시 전체 test:
 이후 Regression 포함 현재 전체 test:
 
 ```text
-189 passed
+215 passed
 ```
 
 # 10.1 Freelancer Income Stability Status
@@ -412,7 +412,7 @@ docs/SALES_UPLOAD_SCHEMA.md
 
 ```text
 Sales Analysis tests  45 passed
-Full Backend tests    189 passed
+Full Backend tests    215 passed
 ```
 
 Railway Public Smoke (2026-08-30):
@@ -477,8 +477,22 @@ Railway Public `/chat` LLM Smoke (2026-08-30):
 - 기존 `max_output_tokens=500`에서 문장 중간 truncation 관찰
 - 기본값을 `900`으로 상향하고 `OPENAI_MAX_OUTPUT_TOKENS` 환경변수로 조정 가능하게 보정
 - 로컬 provider 및 `/chat` contract regression test 통과
-- Railway 재배포 후 동일 Public `/chat` smoke 재검증 완료
-- `reply_source=LLM`, `model=gpt-5.6-luna` 및 문장 절단 현상 해소 확인
+- Railway 재배포 후 동일 Public `/chat` smoke에서 당시 문장 절단 해소 확인
+
+Local QA P0 보강 (2026-08-31, **NOT PUBLIC VERIFIED**):
+
+- 후속 QA 장문 질문에서 문장 중간 절단과 `TEMPLATE_FALLBACK` 반복 재현
+- Responses API `status=incomplete`와 `incomplete_details.reason=max_output_tokens` 감지
+- incomplete 부분 문장 폐기 후 structured deterministic fallback 사용
+- LLM 상세 후보를 상위 3건으로 제한하고 나머지는 추가 후보로 축약; Response의 programs 계약은 유지
+- timeout/rate limit/server transient 오류만 최대 1회 재시도; auth/quota/config 오류는 재시도하지 않음
+- 안전한 provider error class/reason code만 로그하고 API Key·전체 user prompt는 로그하지 않음
+- 기본 timeout `30초`, 기본 `max_output_tokens=1200`으로 조정
+- fallback에 현재 후보·조건·부족정보·준비사항 1/2/3·신청기간·공식 출처 반영
+- GENERAL 메시지의 명시적 지역·연령·예비/기창업·업력·사업자등록 상태를 제한적으로 구조화해 기존 matcher/retrieval에 전달
+- 한국 날짜 기준 `OPEN / UPCOMING / CLOSED / NEEDS_CONFIRMATION` 계산 및 현재 신청 가능/마감 임박 정렬 구현
+- 전체 Backend tests `215 passed`
+- 이번 보강은 Railway 재배포 및 Public `/chat` 재검증 전이므로 PUBLIC VERIFIED로 간주하지 않음
 
 Provider failure:
 
@@ -492,7 +506,7 @@ Structured Result / Evidence는 유지됨.
 
 - Session Persistence
 - LLM Eligibility Extraction
-- General free-form user profile complete extraction
+- General free-form user profile complete extraction (명시적 P0 필드의 제한적 추출만 구현)
 - Second LLM provider fallback
 
 # 12. Security Status
@@ -608,12 +622,14 @@ PUBLIC VERIFIED
 - Public `POST /risk/calculate` → HTTP 200, deterministic calculation 정상
 - Public `POST /chat` → HTTP 200, `reply_source=LLM`, `model=gpt-5.6-luna`
 - Public `/chat` Retrieval / Evidence / Source 유지
-- 출력 토큰 보정 재배포 후 Public `/chat` 문장 절단 현상 해소 확인
+- 2026-08-30 출력 토큰 보정 재배포 당시 Public `/chat` 문장 절단 해소 확인
+- 2026-08-31 후속 QA 재현에 대한 로컬 P0 보강은 Public 재검증 대기
 
 Config as Code 파일과 `.railway/railway.ts`는 사용하지 않는다. 현재 상태는 Railway
 Dashboard-based deployment 및 Public HTTPS smoke `VERIFIED`이다. `/health`, `/programs`,
-`/risk/calculate`, `/chat`을 외부에서 검증했고, 출력 토큰 보정 재배포 후 `/chat`도
-재검증했다. `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
+`/risk/calculate`, `/chat`을 외부에서 검증했고, 2026-08-30 출력 토큰 보정 당시
+`/chat`도 재검증했다. 2026-08-31 로컬 P0 보강은 재배포 전이며 Public 재검증이
+필요하다. `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
 
 현재 배포 P0:
 

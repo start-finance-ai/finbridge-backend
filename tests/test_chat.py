@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
+import httpx
+import openai
 import pytest
 
 from app.ai.provider import (
     AIExplanation,
     AIProviderAuthenticationError,
+    AIProviderMaxOutputTokensError,
+    AIProviderQuotaError,
     AIProviderRateLimitError,
     AIProviderServerError,
     AIProviderTimeoutError,
@@ -263,7 +268,7 @@ def test_openai_provider_uses_responses_api_with_low_reasoning() -> None:
     assert result.text == "설명"
     assert fake_responses.kwargs["model"] == "gpt-5.6-luna"
     assert fake_responses.kwargs["reasoning"] == {"effort": "low"}
-    assert fake_responses.kwargs["max_output_tokens"] == 900
+    assert fake_responses.kwargs["max_output_tokens"] == 1200
     assert fake_responses.kwargs["store"] is False
 
 
@@ -292,4 +297,167 @@ def test_openai_max_output_tokens_invalid_value_uses_default(
 
     settings = get_openai_settings()
 
-    assert settings.max_output_tokens == 900
+    assert settings.max_output_tokens == 1200
+
+
+@pytest.mark.parametrize("value", ["invalid", "0", "-1"])
+def test_openai_timeout_invalid_value_uses_default(value, monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", value)
+
+    settings = get_openai_settings()
+
+    assert settings.timeout_seconds == 30.0
+
+
+def test_incomplete_max_output_tokens_is_not_returned_as_partial_reply(
+    monkeypatch, snapshot_path
+) -> None:
+    class IncompleteResponses:
+        def create(self, **kwargs):
+            del kwargs
+            return SimpleNamespace(
+                output_text="접수 기간: 202",
+                model="gpt-5.6-luna",
+                status="incomplete",
+                incomplete_details=SimpleNamespace(reason="max_output_tokens"),
+            )
+
+    provider = OpenAIProvider(OpenAISettings(api_key="test-key"))
+    provider._client = SimpleNamespace(responses=IncompleteResponses())
+
+    with pytest.raises(AIProviderMaxOutputTokensError):
+        provider.explain(instructions="규칙", input_text="문맥")
+
+    client = client_for(provider, monkeypatch, snapshot_path)
+    response = client.post(
+        "/chat",
+        json={"message": "대구에서 창업을 준비 중인데 지원사업을 알려줘"},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["reply_source"] == "TEMPLATE_FALLBACK"
+    assert "접수 기간: 202" not in payload["reply"]
+    assert "공식 출처" in payload["reply"]
+    assert payload["sources"]
+
+
+def test_transient_timeout_retries_only_once() -> None:
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+
+    class RetryResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def create(self, **kwargs):
+            del kwargs
+            self.calls += 1
+            if self.calls == 1:
+                raise openai.APITimeoutError(request=request)
+            return SimpleNamespace(
+                output_text="재시도 성공",
+                model="gpt-5.6-luna",
+                status="completed",
+            )
+
+    responses = RetryResponses()
+    provider = OpenAIProvider(OpenAISettings(api_key="test-key"))
+    provider._client = SimpleNamespace(responses=responses)
+
+    result = provider.explain(instructions="규칙", input_text="문맥")
+
+    assert result.text == "재시도 성공"
+    assert responses.calls == 2
+
+
+def test_authentication_error_is_not_retried() -> None:
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    upstream_response = httpx.Response(401, request=request)
+
+    class AuthFailureResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def create(self, **kwargs):
+            del kwargs
+            self.calls += 1
+            raise openai.AuthenticationError(
+                "authentication failed",
+                response=upstream_response,
+                body={"error": {"code": "invalid_api_key"}},
+            )
+
+    responses = AuthFailureResponses()
+    provider = OpenAIProvider(OpenAISettings(api_key="test-key"))
+    provider._client = SimpleNamespace(responses=responses)
+
+    with pytest.raises(AIProviderAuthenticationError):
+        provider.explain(instructions="규칙", input_text="문맥")
+
+    assert responses.calls == 1
+
+
+def test_quota_error_is_not_retried() -> None:
+    request = httpx.Request("POST", "https://api.openai.com/v1/responses")
+    upstream_response = httpx.Response(429, request=request)
+
+    class QuotaFailureResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def create(self, **kwargs):
+            del kwargs
+            self.calls += 1
+            raise openai.RateLimitError(
+                "quota unavailable",
+                response=upstream_response,
+                body={"error": {"code": "insufficient_quota"}},
+            )
+
+    responses = QuotaFailureResponses()
+    provider = OpenAIProvider(OpenAISettings(api_key="test-key"))
+    provider._client = SimpleNamespace(responses=responses)
+
+    with pytest.raises(AIProviderQuotaError):
+        provider.explain(instructions="규칙", input_text="문맥")
+
+    assert responses.calls == 1
+
+
+def test_fallback_log_does_not_include_user_prompt_or_provider_message(
+    caplog, monkeypatch, snapshot_path
+) -> None:
+    sensitive_text = "SECRET_USER_PROMPT_AND_API_KEY"
+    client = client_for(
+        FailingProvider(AIProviderServerError(sensitive_text)),
+        monkeypatch,
+        snapshot_path,
+    )
+
+    response = client.post("/chat", json={"message": sensitive_text})
+
+    assert response.status_code == 200
+    assert sensitive_text not in caplog.text
+    assert "reason=SERVER" in caplog.text
+
+
+def test_llm_context_limits_detailed_candidates_but_response_keeps_contract(
+    monkeypatch, snapshot_path
+) -> None:
+    provider = SuccessfulProvider()
+    client = client_for(provider, monkeypatch, snapshot_path)
+
+    response = client.post(
+        "/chat",
+        json={"message": "창업 지원사업을 알려주세요"},
+    )
+    payload = response.json()
+    context_text = provider.calls[0]["input_text"].split(
+        "Structured Context(JSON):\n", maxsplit=1
+    )[1]
+    context = json.loads(context_text)
+
+    assert len(payload["programs"]) == 5
+    assert len(context["programs"]) == 3
+    assert len(context["additional_candidates"]) == 2
+    assert context["reply_policy"]["detailed_program_limit"] == 3

@@ -31,25 +31,25 @@ def get_bizinfo_snapshot_path() -> Path:
 class OpenAISettings:
     api_key: str | None = field(repr=False)
     model: str = "gpt-5.6-luna"
-    timeout_seconds: float = 10.0
-    max_output_tokens: int = 900
+    timeout_seconds: float = 30.0
+    max_output_tokens: int = 1200
 
 
 def get_openai_settings() -> OpenAISettings:
-    timeout_text = get_setting("OPENAI_TIMEOUT_SECONDS") or "10"
+    timeout_text = get_setting("OPENAI_TIMEOUT_SECONDS") or "30"
     try:
         timeout_seconds = float(timeout_text)
     except ValueError:
-        timeout_seconds = 10.0
+        timeout_seconds = 30.0
     if timeout_seconds <= 0:
-        timeout_seconds = 10.0
-    max_output_tokens_text = get_setting("OPENAI_MAX_OUTPUT_TOKENS") or "900"
+        timeout_seconds = 30.0
+    max_output_tokens_text = get_setting("OPENAI_MAX_OUTPUT_TOKENS") or "1200"
     try:
         max_output_tokens = int(max_output_tokens_text)
     except ValueError:
-        max_output_tokens = 900
+        max_output_tokens = 1200
     if max_output_tokens <= 0:
-        max_output_tokens = 900
+        max_output_tokens = 1200
     return OpenAISettings(
         api_key=get_setting("OPENAI_API_KEY"),
         model=get_setting("OPENAI_MODEL") or "gpt-5.6-luna",

@@ -11,7 +11,7 @@ from app.schemas.matching import (
     MatchStatus,
     UserProfile,
 )
-from app.utils.date_parser import DeadlineType
+from app.utils.date_parser import ApplicationStatus, DeadlineType
 
 
 class ChatMode(str, Enum):
@@ -50,6 +50,8 @@ class ChatProgram(BaseModel):
     apply_end: date | None
     apply_period_text: str | None
     deadline_type: DeadlineType
+    application_status: ApplicationStatus
+    application_status_note: str | None
     source_url: AnyHttpUrl | None
 
 

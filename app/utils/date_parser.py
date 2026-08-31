@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class DeadlineType(str, Enum):
@@ -15,6 +16,13 @@ class DeadlineType(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class ApplicationStatus(str, Enum):
+    OPEN = "OPEN"
+    UPCOMING = "UPCOMING"
+    CLOSED = "CLOSED"
+    NEEDS_CONFIRMATION = "NEEDS_CONFIRMATION"
+
+
 @dataclass(frozen=True, slots=True)
 class ApplicationPeriod:
     raw_text: str | None
@@ -23,10 +31,59 @@ class ApplicationPeriod:
     deadline_type: DeadlineType
 
 
+@dataclass(frozen=True, slots=True)
+class ApplicationAvailability:
+    status: ApplicationStatus
+    note: str | None = None
+
+
 _DATE_RANGE = re.compile(
     r"^\s*(\d{4}-\d{2}-\d{2})\s*[~～]\s*(\d{4}-\d{2}-\d{2})\s*$"
 )
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+try:
+    _SEOUL_TIME_ZONE = ZoneInfo("Asia/Seoul")
+except ZoneInfoNotFoundError:
+    # Some minimal Windows Python distributions do not bundle the IANA tzdb.
+    # Korea has no DST, so UTC+09:00 preserves the same calendar-date semantics.
+    _SEOUL_TIME_ZONE = timezone(timedelta(hours=9), name="Asia/Seoul")
+
+
+def seoul_today() -> date:
+    return datetime.now(_SEOUL_TIME_ZONE).date()
+
+
+def calculate_application_availability(
+    *,
+    deadline_type: DeadlineType,
+    apply_start: date | None,
+    apply_end: date | None,
+    today: date | None = None,
+) -> ApplicationAvailability:
+    reference_date = today or seoul_today()
+
+    if deadline_type is DeadlineType.ALWAYS_OPEN:
+        return ApplicationAvailability(ApplicationStatus.OPEN)
+    if deadline_type is DeadlineType.UNTIL_BUDGET_EXHAUSTED:
+        return ApplicationAvailability(
+            ApplicationStatus.NEEDS_CONFIRMATION,
+            "예산 소진 여부는 공식 공고에서 확인 필요",
+        )
+    if deadline_type is not DeadlineType.FIXED_DATE:
+        return ApplicationAvailability(
+            ApplicationStatus.NEEDS_CONFIRMATION,
+            "신청 가능 여부는 공식 공고에서 확인 필요",
+        )
+    if apply_start is None or apply_end is None or apply_start > apply_end:
+        return ApplicationAvailability(
+            ApplicationStatus.NEEDS_CONFIRMATION,
+            "신청기간 날짜가 불완전하여 공식 공고에서 확인 필요",
+        )
+    if reference_date < apply_start:
+        return ApplicationAvailability(ApplicationStatus.UPCOMING)
+    if reference_date > apply_end:
+        return ApplicationAvailability(ApplicationStatus.CLOSED)
+    return ApplicationAvailability(ApplicationStatus.OPEN)
 
 
 def _parse_date(value: str) -> date | None:

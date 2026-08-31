@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.ai.provider import AIExplanation, AIProviderUnavailableError
@@ -9,6 +11,8 @@ from app.retrieval.program_retrieval import (
     ProgramRetrievalService,
     normalize_text,
 )
+from app.retrieval.query_understanding import extract_explicit_profile
+from app.schemas.eligibility import ConditionType, ExtractionStatus
 from app.schemas.matching import BusinessStatus, UserProfile
 from app.schemas.retrieval import ProgramSearchRequest
 from app.services.program_service import ProgramService
@@ -194,6 +198,12 @@ def test_search_api_returns_structured_result(client: ASGITestClient) -> None:
     assert payload["results"][0]["program"]["program_id"] == WATER_PROGRAM_ID
     assert payload["results"][0]["source"] == "BIZINFO"
     assert payload["results"][0]["source_url"]
+    assert payload["results"][0]["program"]["application_status"] in {
+        "OPEN",
+        "UPCOMING",
+        "CLOSED",
+        "NEEDS_CONFIRMATION",
+    }
     assert payload["score_semantics"] == "DETERMINISTIC_RANKING_ONLY"
 
 
@@ -218,6 +228,149 @@ def test_general_chat_retrieves_top_n_with_evidence_and_sources(
     assert payload["program_context_id"] is None
     assert '"retrieval_score"' in provider.calls[0]
     assert '"raw_source"' not in provider.calls[0]
+
+
+def test_general_message_explicit_profile_drives_matching_and_region_ranking(
+    retrieval_service: ProgramRetrievalService,
+    program_service: ProgramService,
+) -> None:
+    message = "대구 28세 예비창업자 사업자 미등록 지원사업 알려줘"
+    profile = extract_explicit_profile(message)
+    assert profile is not None
+
+    response = retrieval_service.search(
+        ProgramSearchRequest(
+            query=message,
+            region=profile.region,
+            business_status=profile.business_status,
+            user_type=profile.user_type,
+            profile=profile,
+            limit=10,
+        )
+    )
+
+    assert response.results
+    assert all(
+        "대구" in item.program.program_name
+        for item in response.results[:2]
+    )
+    kept_unknown_region = False
+    for item in response.results:
+        eligibility = program_service.get_program_eligibility(
+            item.program.program_id
+        )
+        region_conditions = [
+            condition
+            for condition in [
+                *eligibility.common_conditions,
+                *(
+                    condition
+                    for group in eligibility.eligibility_groups
+                    for condition in group.conditions
+                ),
+            ]
+            if condition.condition_type is ConditionType.REGION_OR_LOCATION
+            and condition.extraction_status is ExtractionStatus.SUPPORTED
+        ]
+        if not region_conditions:
+            kept_unknown_region = True
+        assert (
+            not region_conditions
+            or "대구" in item.program.program_name
+            or any("대구" in str(condition.value) for condition in region_conditions)
+        )
+    assert kept_unknown_region is True
+
+
+def test_general_message_explicit_profile_is_reused_by_chat_matcher(
+    monkeypatch: pytest.MonkeyPatch,
+    snapshot_path,
+) -> None:
+    monkeypatch.setenv("FINBRIDGE_BIZINFO_SNAPSHOT", str(snapshot_path))
+    client = ASGITestClient(create_app(ai_provider=StubProvider()))
+
+    response = client.post(
+        "/chat",
+        json={
+            "message": "대구 28세 예비창업자이고 사업자 미등록 상태입니다. 지원사업 알려줘"
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["programs"]
+    assert len(payload["matches"]) == len(payload["programs"])
+    assert all(
+        "대구" in item["program_name"] for item in payload["programs"][:2]
+    )
+
+
+def test_structured_fallback_includes_conditions_priorities_period_and_sources(
+    monkeypatch: pytest.MonkeyPatch,
+    snapshot_path,
+) -> None:
+    monkeypatch.setenv("FINBRIDGE_BIZINFO_SNAPSHOT", str(snapshot_path))
+    client = ASGITestClient(create_app(ai_provider=UnavailableProvider()))
+
+    response = client.post(
+        "/chat",
+        json={"message": "대구 업력 5년 사업자 지원사업과 준비사항을 알려줘"},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["reply_source"] == "TEMPLATE_FALLBACK"
+    assert "현재 확보된 공고 범위에서 후보" in payload["reply"]
+    assert "현재 확인되는 조건" in payload["reply"]
+    assert "준비사항 1순위" in payload["reply"]
+    assert "준비사항 2순위" in payload["reply"]
+    assert "준비사항 3순위" in payload["reply"]
+    assert "신청기간" in payload["reply"]
+    assert "공식 출처" in payload["reply"]
+    assert payload["programs"]
+    assert payload["matches"]
+    assert payload["evidence"]
+    assert payload["sources"]
+    assert payload["actions"]
+
+
+def test_currently_open_chat_filters_closed_and_sorts_open_fixed_deadlines(
+    monkeypatch: pytest.MonkeyPatch,
+    snapshot_path,
+) -> None:
+    monkeypatch.setenv("FINBRIDGE_BIZINFO_SNAPSHOT", str(snapshot_path))
+    monkeypatch.setattr(
+        "app.retrieval.program_retrieval.seoul_today",
+        lambda: date(2026, 8, 31),
+    )
+    monkeypatch.setattr(
+        "app.services.chat_service.seoul_today",
+        lambda: date(2026, 8, 31),
+    )
+    client = ASGITestClient(create_app(ai_provider=UnavailableProvider()))
+
+    response = client.post(
+        "/chat",
+        json={
+            "message": "지금 신청 가능한 대구 창업 지원사업을 마감일 가까운 순서로 알려주세요"
+        },
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["programs"]
+    assert all(
+        item["application_status"] in {"OPEN", "NEEDS_CONFIRMATION"}
+        for item in payload["programs"]
+    )
+    fixed_open_ends = [
+        item["apply_end"]
+        for item in payload["programs"]
+        if item["application_status"] == "OPEN"
+        and item["deadline_type"] == "FIXED_DATE"
+    ]
+    assert fixed_open_ends == sorted(fixed_open_ends)
+    assert "신청 종료" not in payload["reply"]
 
 
 def test_general_chat_with_profile_runs_matcher_without_score_promotion(

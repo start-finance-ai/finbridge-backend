@@ -135,6 +135,52 @@ def test_case_4_absent_region_condition_does_not_create_unknown() -> None:
     assert result.condition_results == []
 
 
+def test_broad_region_needs_review_for_district_requirement() -> None:
+    region = condition(
+        "region",
+        ConditionType.REGION_OR_LOCATION,
+        value="대구 서구",
+    )
+
+    result = EligibilityMatcher().match(
+        eligibility(common=[region]),
+        UserProfile(region="대구", business_region="대구"),
+    )
+
+    assert result.match_status is MatchStatus.NEEDS_REVIEW
+    assert result.condition_results[0].reason == "REGION_DETAIL_REQUIRED"
+
+
+def test_explicit_other_top_level_region_is_no_match() -> None:
+    region = condition(
+        "region",
+        ConditionType.REGION_OR_LOCATION,
+        value="울산광역시",
+    )
+
+    result = EligibilityMatcher().match(
+        eligibility(common=[region]),
+        UserProfile(region="대구", business_region="대구"),
+    )
+
+    assert result.match_status is MatchStatus.NO_MATCH
+
+
+def test_specific_user_region_matches_broader_program_region() -> None:
+    region = condition(
+        "region",
+        ConditionType.REGION_OR_LOCATION,
+        value="대구광역시",
+    )
+
+    result = EligibilityMatcher().match(
+        eligibility(common=[region]),
+        UserProfile(region="대구 서구", business_region="대구 서구"),
+    )
+
+    assert result.match_status is MatchStatus.MATCH
+
+
 def test_case_5_missing_appendix_program_cannot_match() -> None:
     result = EligibilityMatcher().match(
         eligibility(status=ProgramExtractionStatus.UNKNOWN), UserProfile()

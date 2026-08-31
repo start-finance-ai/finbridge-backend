@@ -4,8 +4,8 @@ from datetime import date
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
-from app.schemas.matching import BusinessStatus, UserType
-from app.utils.date_parser import DeadlineType
+from app.schemas.matching import BusinessStatus, UserProfile, UserType
+from app.utils.date_parser import ApplicationStatus, DeadlineType
 
 
 class ProgramSearchRequest(BaseModel):
@@ -18,6 +18,9 @@ class ProgramSearchRequest(BaseModel):
     category: str | None = Field(default=None, min_length=1, max_length=100)
     provider: str | None = Field(default=None, min_length=1, max_length=200)
     industry: str | None = Field(default=None, min_length=1, max_length=200)
+    profile: UserProfile | None = None
+    open_now_only: bool = False
+    sort_by_deadline: bool = False
     limit: int = Field(default=5, ge=1, le=20)
 
 
@@ -36,6 +39,8 @@ class ProgramSearchProgram(BaseModel):
     apply_end: date | None
     apply_period_text: str | None
     deadline_type: DeadlineType
+    application_status: ApplicationStatus
+    application_status_note: str | None
 
 
 class ProgramSearchResult(BaseModel):
