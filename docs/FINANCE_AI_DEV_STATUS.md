@@ -1,19 +1,18 @@
 # FINANCE AI — Development Status
 
-Last Updated: 2026-08-31
+Last Updated: 2026-09-01
 
 이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
 
-구현되지 않은 기능을 완료된 것처럼 기록하지 않는다.
-상태는 실제 코드, 실행, 테스트, Live Smoke 결과를 기준으로 한다.
+구현되지 않은 기능을 완료된 것처럼 기록하지 않는다. 상태는 실제 코드, 테스트, Railway Public Smoke, QA 재검증 결과를 기준으로 한다.
 
 # 1. Current Phase
 
 Current Phase:
 
 ```text
-G5 — Backend Public Deployment Verified
-→ Remaining Backend Features + Frontend Integration
+G5 — Public Backend Verified
+→ G6 Frontend Integration + Final End-to-End QA
 ```
 
 [TEAM DECISION]
@@ -22,36 +21,39 @@ G5 — Backend Public Deployment Verified
 - 서비스명: `FinBridge`
 - 내부 완료 목표: `2026-09-03~04`
 - 팀 공유 제출 일정: `2026-09-07 오전`
-- 공식 최종 마감시각은 제출 전 최신 공지 재확인
+- 공식 최종 마감시각은 제출 전 최신 공식 공지를 다시 확인한다.
 
 # 2. Current Completion Summary
 
 ```text
-Documentation / Contract          DONE / continuously updated
-FastAPI Scaffold                 VERIFIED
-Health Check                     VERIFIED
-Bizinfo Live API                 VERIFIED
-Manual Collector                 VERIFIED
-Bootstrap Snapshot               VERIFIED locally
-Program Normalization            VERIFIED
-Eligibility Schema               IMPLEMENTED
-Eligibility Extraction Baseline  VERIFIED
-Deterministic Matching           VERIFIED
-Structured/Keyword Retrieval     VERIFIED
-Risk Calculation                 VERIFIED
-OpenAI /chat                     VERIFIED
-Template Fallback                VERIFIED
-program_id Chat Context          VERIFIED
-Frontend Local Build/Dev         VERIFIED
-Backend Public Deployment        VERIFIED
-Frontend API Integration         NOT YET
-Frontend Public Deployment       NOT YET
-Income Stability                 PUBLIC VERIFIED
-Sales Upload/Analysis            PUBLIC VERIFIED
-Database                         NOT USED BY DESIGN
+Documentation / Contract                 DONE / continuously updated
+FastAPI Scaffold                        VERIFIED
+Health Check                            PUBLIC VERIFIED
+Bizinfo Live API                        VERIFIED
+Manual Collector                        VERIFIED
+Bootstrap Snapshot                      VERIFIED
+Program Normalization                   VERIFIED
+Eligibility Schema                      IMPLEMENTED
+Eligibility Extraction Baseline         VERIFIED
+Deterministic Matching                  VERIFIED
+Structured/Keyword Retrieval            VERIFIED
+Regional Deterministic Ranking          PUBLIC VERIFIED
+Application Status / Date Logic         PUBLIC VERIFIED
+Risk Calculation                        PUBLIC VERIFIED
+OpenAI /chat                            PUBLIC VERIFIED
+Template Fallback                       VERIFIED
+program_id Chat Context                 VERIFIED
+Income Stability                        PUBLIC VERIFIED
+Sales CSV/XLSX Analysis                 PUBLIC VERIFIED
+Backend Railway Deployment              PUBLIC VERIFIED
+Frontend Local Build/Dev                VERIFIED
+Frontend API Integration                NOT YET PUBLIC VERIFIED
+Frontend Vercel Deployment              NOT YET PUBLIC VERIFIED
+Database                                NOT USED BY DESIGN
+Vector DB / Graph DB / Multi-Agent      NOT IMPLEMENTED / NOT REQUIRED FOR MVP
 ```
 
-현재 전체 Backend test 상태:
+현재 전체 Backend regression test 상태:
 
 ```text
 222 passed
@@ -67,16 +69,19 @@ Database                         NOT USED BY DESIGN
 - Uvicorn: `0.52.1`
 - pytest: `9.1.1`
 - OpenAI Python SDK: `3.6.0`
-- openpyxl: `3.1.5`
-- python-multipart: `0.0.32`
-- defusedxml: `0.7.1`
-- Dependency: `requirements.txt`
+- OpenAI Responses API
+- Model: `gpt-5.6-luna`
+- Deployment: Railway Hobby
+- Dependency management: `requirements.txt`
 
 Data Access:
 
 ```text
-Local Snapshot / Bootstrap
-→ lazy in-memory Repository
+Official Bizinfo API
+→ Raw Snapshot / Bootstrap
+→ Normalization
+→ In-memory Repository
+→ Retrieval / Eligibility / Matching
 ```
 
 Database / ORM:
@@ -85,9 +90,37 @@ Database / ORM:
 MVP에서는 사용하지 않음
 ```
 
-# 4. Current API Status
+# 4. Public Deployment Status
 
-## VERIFIED
+[EXPERIMENT / PUBLIC VERIFIED]
+
+Backend Public URL:
+
+```text
+https://backend-production-1620.up.railway.app
+```
+
+Railway:
+
+- Region: Southeast Asia / Singapore
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health check: `/health`
+- Public `/health`: HTTP 200 verified
+- Public `/docs`: accessible
+- Root `/`: 404 is expected because no root route is defined
+
+Current OpenAI production settings used for the final P0 verification:
+
+```text
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_OUTPUT_TOKENS=2000
+```
+
+Secret values are not recorded in this document.
+
+# 5. Current API Status
+
+## PUBLIC VERIFIED / VERIFIED
 
 ```text
 GET  /health
@@ -95,14 +128,14 @@ GET  /programs
 GET  /programs/{program_id}
 POST /programs/match
 POST /risk/calculate
+POST /chat
 POST /income-stability/calculate
 POST /sales-analysis/analyze
-POST /chat
 ```
 
-# 5. Data / Collector Status
+# 6. Data / Collector Status
 
-## DS-001 기업마당
+## DS-001 기업마당 지원사업정보 API
 
 Status:
 
@@ -110,106 +143,53 @@ Status:
 VERIFIED
 ```
 
-공식 API Contract:
+현재 검증된 Main Source는 중소벤처기업부 기업마당 지원사업정보 API다.
+
+수집/운영 원칙:
 
 ```text
-GET https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do
-crtfcKey
-dataType=json
-searchCnt=100
-searchLclasId=06
+기업마당 API
+→ Raw Snapshot
+→ Normalization
+→ Eligibility Extraction
+→ Structured Eligibility
+→ Deterministic Matching
+→ Evidence
+→ LLM Explanation
 ```
 
-2026-08-29 Live Refresh:
+Collector는 사용자 요청마다 외부 API를 직접 호출하지 않는다.
 
-- HTTP 200
-- API call 1회
-- Raw 69
-- Unique 69
-- Duplicate 0
-- Loader 69
-- Normalization 69
-
-Collector:
+현재 MVP 운영 방식:
 
 ```text
-Manual CLI only
+Manual / one-time refresh
+→ Snapshot update
+→ local/service data use
+→ external API failure 시 기존 Snapshot fallback
 ```
 
-사용자 요청마다 기업마당을 호출하지 않는다.
+현재 사용 Bootstrap:
 
-현재 미구현:
+```text
+69 programs
+```
 
-- Pagination
-- Scheduler
-- Cron
-- DB sync
-- 다른 분야 자동 수집
-
-# 6. Bootstrap Status
+# 7. Eligibility / Matching Status
 
 [EXPERIMENT]
 
-검증된 69건 Bootstrap:
-
-```text
-data/bootstrap/bizinfo_startup_bootstrap.json
-```
-
-검증:
-
-- records 69
-- unique IDs 69
-- duplicate 0
-- Loader 성공
-- Normalization 성공
-- Eligibility / Retrieval 성공
-- Secret scan 정상
-- Runtime 외부 API 호출 없이 Fresh Deployment simulation 성공
-
-Fallback:
-
-```text
-1. FINBRIDGE_BIZINFO_SNAPSHOT
-2. valid runtime service-ready snapshot
-3. tracked bootstrap snapshot
-```
-
-주의:
-
-Bootstrap 작업 최종 보고 시 해당 파일은 아직 unstaged 상태였다.
-실제 Railway 배포 전에 반드시 Git stage / commit / push 여부를 재확인한다.
-
-# 7. Eligibility Status
-
-## Schema
-
-`docs/ELIGIBILITY_SCHEMA.md`
-
 구현 핵심:
 
-- Program/Condition extraction status 분리
-- 조건 부재 / Evidence 부족 분리
-- DNF형 `common_conditions + eligibility_groups`
+- Program / Condition extraction status 분리
+- 조건 부재와 Evidence 부족 분리
+- `common_conditions + eligibility_groups` 기반 대안 경로 처리
 - `global_exclusions`
-- `ELIGIBILITY_EXCEPTION` metadata-only
-- Evidence 없는 `SUPPORTED` 차단
-- YEAR/MONTH 분리
-- `raw_value` + normalized operand 유지
-- deterministic matching
+- Evidence 없는 최종 지원 가능 단정 방지
+- 원문 Evidence 유지
+- 명시적 조건 비교는 deterministic matching
 
-## Extraction Baseline
-
-지원 Pattern:
-
-- AGE
-- BUSINESS_AGE
-- REGION
-- PRE_FOUNDER
-- BUSINESS_REGISTRATION_STATUS
-- 안전한 OR Group
-
-69건 Extraction:
+기존 69건 Extraction baseline:
 
 ```text
 SUPPORTED       22
@@ -217,73 +197,83 @@ NEEDS_REVIEW    46
 UNSUPPORTED      1
 ```
 
-전체 공고·별첨 Eligibility 완전 Coverage는 아니다.
+지원 Pattern 예:
 
-# 8. Matching Status
+- REGION / LOCATION
+- AGE
+- PRE_FOUNDER
+- BUSINESS_AGE
+- BUSINESS_REGISTRATION_STATUS
+- 안전한 OR Group
 
-Status:
+주의:
 
-```text
-VERIFIED
-```
+전체 공고문·별첨의 모든 자격조건을 완전 구조화한 것은 아니다. Evidence가 부족하면 `NEEDS_REVIEW`, `UNKNOWN`, `UNSUPPORTED` 계열로 처리한다.
 
-핵심 Case:
+# 8. Retrieval / Regional Ranking Status
 
-- 업력 7년 이하 / 사용자 3년 → MATCH
-- 업력 7년 이하 / 사용자 9년 → NO_MATCH
-- 업력 미입력 → NEEDS_REVIEW
-- 지역 조건 자체 없음 → 지역 때문에 불확실해지지 않음
-- 별첨 미확보 → MATCH 금지
-- 법인 제외 / 법인 사용자 → global exclusion → NO_MATCH
+[EXPERIMENT / PUBLIC VERIFIED — 2026-09-01]
 
-실제 Raw Program에서도 MATCH / NEEDS_REVIEW HTTP 결과 검증 완료.
-
-# 9. Retrieval Status
-
-Status:
-
-```text
-VERIFIED
-```
-
-구현:
+기본 Retrieval:
 
 ```text
 Structured Filter
 + Exact / Keyword Search
-+ deterministic ranking
++ Deterministic Ranking
 + Top-N
 ```
 
-Endpoint:
+GENERAL 자연어에서도 다음 프로필을 제한적으로 구조화한다.
+
+- region
+- age
+- pre-founder / existing business state
+- business age
+- business registration status
+
+지역 조건이 명시된 경우 일반 keyword score보다 먼저 deterministic region tier를 적용한다.
 
 ```text
-GET /programs
+1. SAME_REGION
+2. NATIONWIDE
+3. OTHER_REGION_WITH_EXPLICIT_EXCEPTION
+4. REGION_UNKNOWN
+5. EXPLICIT_OTHER_REGION_ONLY → exclude
 ```
 
-실제 Raw Query 예:
+검증된 동작:
 
-- `창업`
-- `청년`
-- `대구`
-- `중소벤처기업부`
-- 존재하지 않는 검색어
+- `대구` → `대구 동구/서구`는 하위 지역 상세정보가 필요하면 `REGION_DETAIL_REQUIRED`
+- 대구 사용자에게 명백한 울산/안산 등 타지역 전용 공고가 상위를 지배하지 않음
+- 전국 대상 공고는 유지
+- 영월 주소 이전 가능, 울산 타지역민 별도조건, 전남 타지역민 예외처럼 실제 예외 Evidence가 있으면 후보를 완전히 삭제하지 않고 `NEEDS_REVIEW` 가능
+- 짧은 질문과 긴 종합 질문에서 동일 structured profile을 유지하도록 회귀 테스트 추가
 
-No-result에서 구조적으로 Program을 생성하지 않는다.
+# 9. Application Status / Date Logic
 
-Vector / Semantic Retrieval:
+[EXPERIMENT / PUBLIC VERIFIED]
+
+한국 기준 현재 날짜를 사용해 다음 상태를 deterministic하게 계산한다.
 
 ```text
-NOT IMPLEMENTED / currently not required
+OPEN
+UPCOMING
+CLOSED
+NEEDS_CONFIRMATION
 ```
+
+구현 원칙:
+
+- `Asia/Seoul` 기준
+- Windows timezone data 부재 시 한국 UTC+09 fallback
+- “지금 신청 가능한” 요청에서 `CLOSED` / `UPCOMING` 제외
+- 고정 마감일 OPEN 공고는 마감일 가까운 순 정렬 가능
+- `예산 소진시까지`는 임의 D-day 계산 금지
+- 예산 소진 여부를 확인할 수 없으면 `NEEDS_CONFIRMATION`
 
 # 10. Risk Calculation Status
 
-Status:
-
-```text
-VERIFIED
-```
+[EXPERIMENT / PUBLIC VERIFIED]
 
 Endpoint:
 
@@ -291,7 +281,17 @@ Endpoint:
 POST /risk/calculate
 ```
 
-구현:
+입력 예:
+
+- initial_cost
+- own_capital
+- monthly_revenue
+- monthly_expense
+- loan_amount
+- annual_interest_rate
+- loan_term_months
+
+결정론적 계산:
 
 - available cash
 - 원리금균등 monthly payment
@@ -300,33 +300,15 @@ POST /risk/calculate
 - runway
 - remaining debt at runway
 
-Validation:
+Decimal / `ROUND_HALF_UP` 기반 계산을 사용한다.
 
-- 음수 금액/금리 거부
-- 대출금 > 0이면 기간 >= 1
-- 0% 금리 처리
-- 무대출 처리
-- `runway=null` 의미 명시
+주의:
 
-Risk 작업 완료 시 전체 test:
+금융기관의 실제 대출 승인·신용평가 결과를 의미하지 않는다.
 
-```text
-47 passed
-```
+# 11. Income Stability Status
 
-이후 Regression 포함 현재 전체 test:
-
-```text
-215 passed
-```
-
-# 10.1 Freelancer Income Stability Status
-
-Status:
-
-```text
-IMPLEMENTED / VERIFIED LOCALLY / PUBLIC VERIFIED
-```
+[EXPERIMENT / PUBLIC VERIFIED]
 
 Endpoint:
 
@@ -334,113 +316,70 @@ Endpoint:
 POST /income-stability/calculate
 ```
 
-입력·검증:
-
-- 최근 6개월 월별 소득을 정확히 6개 입력
-- 각 소득은 숫자이며 0 이상
-- 0원인 달 허용, 음수·5개·7개 입력은 HTTP 422
-- 결측값 보정 없음
-
-Deterministic calculation:
-
-- 평균 = `sum(monthly_incomes) / 6`
-- 모집단 분산 = `Σ(x - mean)^2 / 6`
-- 모집단 표준편차 = `sqrt(variance)`
-- 변동계수(%) = `standard_deviation / mean * 100`
-- 평균이 0이면 변동계수는 `null`
-- 최저·최고 월 소득 반환
-- 내부 계산은 `Decimal`, 최종 금액·비율 응답은 소수 둘째 자리 `ROUND_HALF_UP`
-
-제한:
-
-- LLM 호출 없음
-- 소득 데이터 저장 없음
-- 안정/주의/위험 등급 또는 금융점수 생성 없음
-- 계약 지속성·세금·부채·신용정보 미반영
-- 금융기관의 소득 인정·신용평가를 의미하지 않는 disclaimer 반환
-
-검증:
+입력:
 
 ```text
-Income Stability tests  13 passed
-Full Backend tests      144 passed
+최근 6개월 월별 소득
 ```
 
-Railway Public Smoke (2026-08-30):
+결정론적 지표:
 
-- 일반 6개월 입력 → HTTP 200, 평균 `3000000`, 모집단 표준편차 `129099.44`, CV `4.3`, 최저 `2800000`, 최고 `3200000`, disclaimer 정상
-- 전월 0원 입력 → HTTP 200, 평균 `0`, 표준편차 `0`, CV `null`, 최저·최고 `0`
+- 평균
+- 모집단 표준편차
+- 변동계수(CV)
+- 최소 / 최대
 
-# 10.2 Sales Spreadsheet Analysis Status
+원칙:
 
-Status:
+- 정확히 6개월
+- 0 허용
+- 음수 / 잘못된 타입 거부
+- 평균 0이면 CV는 `null`
+- 임의의 “안정/불안정” 금융기관 판정 기준을 생성하지 않음
 
-```text
-IMPLEMENTED / VERIFIED LOCALLY / PUBLIC VERIFIED
-```
+한계 안내:
+
+신용평가·소득인정·상환능력 판정을 의미하지 않는 참고 지표다.
+
+# 12. Sales Spreadsheet Analysis Status
+
+[EXPERIMENT / PUBLIC VERIFIED]
 
 Endpoint:
 
 ```text
 POST /sales-analysis/analyze
-Content-Type: multipart/form-data
+```
+
+상태:
+
+```text
+REAL CSV/XLSX ANALYSIS IMPLEMENTED
+NOT DEMO SAMPLE
 ```
 
 구현:
 
-- FinBridge Sample Schema 기반 `.csv`, `.xlsx` 실제 업로드 분석
-- CSV UTF-8 / UTF-8-SIG / CP949 지원
-- XLSX required-column sheet 탐색; 유효 sheet 복수이면 모호성 오류
-- canonical/명시적 한국어 alias header만 지원
-- 최대 파일 5 MB, 최대 데이터 50,000행
-- Decimal 기반 월별 집계, 평균, 합계, 최고·최저 월, 모집단 표준편차/CV
-- 연속 최근 6개월의 최근 3개월 대 직전 3개월 추세
-- 최근 월 MoM 및 계산 불가 reason
-- missing calendar month 탐지; 0원 month 자동 생성 없음
-- Data Quality metadata와 구조화 validation error
-- 실제 업로드 성공 시 `is_demo=false`, currency `KRW`
-- 업로드 원문 영구 저장·로그·LLM 전달 없음
-- openpyxl read-only/data-only와 defusedxml XML 보호 사용
+- CSV / XLSX multipart upload
+- 명시적 column alias 처리
+- 날짜 / 매출금액 validation
+- 최대 5MB / 50,000 rows
+- 평균 매출
+- trend
+- CV
+- MoM
+- 결측 월을 임의 0으로 채우지 않음
+- 음수 매출은 현재 refund 모델 미지원으로 오류 처리
+- 파일 영구 저장 없음
+- LLM 미사용
 
-계약 문서:
+P1 잔여 QA:
 
-```text
-docs/SALES_UPLOAD_SCHEMA.md
-```
+- 동일 거래의 exact duplicate row에 대한 warning 추가 검토
 
-검증:
+# 13. AI / Chat Status
 
-```text
-Sales Analysis tests  45 passed
-Full Backend tests    215 passed
-```
-
-Railway Public Smoke (2026-08-30):
-
-- CSV → HTTP 200, `is_demo=false`, `source_format=CSV`, monthly series·평균·summary·최근 추세·변동성·MoM·Data Quality 정상, missing months·warnings 없음
-- XLSX → HTTP 200, `is_demo=false`, `source_format=XLSX`, `sheet_name=매출`, monthly series·평균·summary·최근 추세·변동성·MoM·Data Quality 정상
-- `sales_amount` 필수 컬럼 누락 CSV → `REQUIRED_COLUMN_MISSING`, field `sales_amount`, missing columns `["sales_amount"]` 확인
-
-현재 미검증:
-
-- Frontend 실제 파일 업로드 연동
-
-# 11. AI / Chat Status
-
-Status:
-
-```text
-VERIFIED
-```
-
-Provider:
-
-```text
-OpenAI
-Responses API
-gpt-5.6-luna
-reasoning effort = low
-```
+[EXPERIMENT / PUBLIC VERIFIED — 2026-09-01]
 
 Endpoint:
 
@@ -448,106 +387,139 @@ Endpoint:
 POST /chat
 ```
 
-구현:
+지원:
 
-- GENERAL
-- FOCUS
-- optional focus_profile
-- optional program_id
+- `GENERAL`
+- `FOCUS`
+- optional `focus_profile`
+- optional `program_id`
 - stateless session contract
-- Structured Program / Match / Evidence / Sources
-- OpenAI Explanation
-- Template Fallback
-- suggest_focus_mode
-- program_id detail context
+- structured programs / matches / evidence / sources / actions
+- OpenAI explanation
+- deterministic template fallback
+- `suggest_focus_mode`
 
-OpenAI Live Smoke:
-
-- HTTP 200
-- `reply_source=LLM`
-- non-empty reply
-- latency 약 4.3초
-- API Key 노출 없음
-
-Railway Public `/chat` LLM Smoke (2026-08-30):
-
-- OpenAI Responses API 호출 성공 (`gpt-5.6-luna`)
-- `reply_source=LLM`, non-empty reply 확인
-- Retrieval / Evidence / Source 유지 확인
-- 기존 `max_output_tokens=500`에서 문장 중간 truncation 관찰
-- 기본값을 `900`으로 상향하고 `OPENAI_MAX_OUTPUT_TOKENS` 환경변수로 조정 가능하게 보정
-- 로컬 provider 및 `/chat` contract regression test 통과
-- Railway 재배포 후 동일 Public `/chat` smoke에서 당시 문장 절단 해소 확인
-
-Local QA P0 보강 (2026-08-31, **NOT PUBLIC VERIFIED**):
-
-- 후속 QA 장문 질문에서 문장 중간 절단과 `TEMPLATE_FALLBACK` 반복 재현
-- Responses API `status=incomplete`와 `incomplete_details.reason=max_output_tokens` 감지
-- incomplete 부분 문장 폐기 후 structured deterministic fallback 사용
-- LLM 상세 후보를 상위 3건으로 제한하고 나머지는 추가 후보로 축약; Response의 programs 계약은 유지
-- timeout/rate limit/server transient 오류만 최대 1회 재시도; auth/quota/config 오류는 재시도하지 않음
-- 안전한 provider error class/reason code만 로그하고 API Key·전체 user prompt는 로그하지 않음
-- 기본 timeout `30초`, 기본 `max_output_tokens=1200`으로 조정
-- fallback에 현재 후보·조건·부족정보·준비사항 1/2/3·신청기간·공식 출처 반영
-- GENERAL 메시지의 명시적 지역·연령·예비/기창업·업력·사업자등록 상태를 제한적으로 구조화해 기존 matcher/retrieval에 전달
-- 한국 날짜 기준 `OPEN / UPCOMING / CLOSED / NEEDS_CONFIRMATION` 계산 및 현재 신청 가능/마감 임박 정렬 구현
-- 전체 Backend tests `215 passed`
-- 이번 보강은 Railway 재배포 및 Public `/chat` 재검증 전이므로 PUBLIC VERIFIED로 간주하지 않음
-
-Local QA 안정화 (2026-09-01, **NOT PUBLIC VERIFIED**):
-
-- Railway 로그에서 확인된 `/chat` fallback 원인은 `TIMEOUT`과 `MAX_OUTPUT_TOKENS`
-- timeout `30초`, max output `1200`, transient retry 최대 1회 및 incomplete structured fallback 유지
-- 동일한 69건 bootstrap·대구 28세 예비창업 질문에서 LLM Context JSON을
-  `10,786자 / 14,854 bytes`에서 `2,982자 / 4,178 bytes`로 약 72% 축소
-- LLM 상세 후보 최대 3건, 후보별 핵심 Eligibility/Match/기간/상태/신청방법 요약/공식 URL만 전달;
-  Response의 programs/evidence/sources/actions 계약은 유지
-- 답변 visible token 상한 900과 준비사항 1/2/3 마지막 출력 규칙을 prompt에 명시
-- 명시적 타 시·도 local-only Evidence 추출을 보강하고 전국 공고는 유지;
-  주소 이전·타지역민 허용 Evidence는 자동 제외 대신 `NEEDS_REVIEW` 유지
-- 예비창업자와 업력 조건의 정방향·역방향 OR를 보존하고, 충족되지 않은 다른 OR 경로의
-  업력 누락은 LLM Context와 structured fallback 준비사항에서 제외
-- 전체 Backend tests `219 passed`; Railway 재배포·Public 재검증 전이므로 PUBLIC VERIFIED 아님
-
-Local GENERAL 지역 우선순위 안정화 (2026-09-01, **NOT PUBLIC VERIFIED**):
-
-- Public QA 전달 장문을 69건 bootstrap에서 재현하고 짧은 질문과 동일한
-  `region=대구 / age=28 / pre_founder=true / business_status=UNREGISTERED` 추출 확인
-- 일반 keyword score보다 앞서는 deterministic region tier 적용:
-  `SAME_REGION → NATIONWIDE → OTHER_REGION_WITH_EXPLICIT_EXCEPTION → REGION_UNKNOWN`
-- 명시적 타지역 전용은 제외하고 주소 이전·타지역민 예외 공고는 `NEEDS_REVIEW` 후보로 유지
-- 전체 Backend tests `222 passed`; 수정 후 Railway Public 재검증 전이므로 PUBLIC VERIFIED 아님
-
-Provider failure:
+Provider:
 
 ```text
-TEMPLATE_FALLBACK
+OpenAI Responses API
+gpt-5.6-luna
 ```
 
-Structured Result / Evidence는 유지됨.
+LLM 역할:
 
-현재 미구현:
+- 자연어 의도 / 사용자 조건 보조 해석
+- 검증된 retrieval / matching / calculation 결과 설명
+- Evidence 종합
+- 추가 확인사항 / 다음 행동 설명
 
-- Session Persistence
-- LLM Eligibility Extraction
-- General free-form user profile complete extraction (명시적 P0 필드의 제한적 추출만 구현)
-- Second LLM provider fallback
+LLM이 최종 자격조건, 신청기간, 지원금, 금융수치를 임의 생성하도록 하지 않는다.
 
-# 12. Security Status
+## 13.1 Prompt / Output Hardening
+
+QA 이후 Public 장애 원인:
+
+```text
+AIProviderTimeoutError         reason=TIMEOUT
+AIProviderMaxOutputTokensError reason=MAX_OUTPUT_TOKENS
+```
+
+수정:
+
+- provider `status` / `incomplete_details` 검사
+- incomplete partial output 사용자 노출 차단
+- transient timeout/rate/server error 최대 1회 retry
+- auth/quota/config/incomplete는 불필요 retry 금지
+- fallback 구조화
+- LLM prompt 상세 후보 최대 3건
+- Response structured programs는 5건 유지
+- 불필요한 전체 HTML summary / 중복 evidence / sources context 제거
+- visible reply 목표 약 700~900 token
+- Railway timeout 30초 유지
+- production `max_output_tokens` 2000으로 조정
+
+동일 QA 질문 기준 prompt context 측정:
+
+```text
+Context JSON: 10,786 chars / 14,854 bytes
+→ 2,982 chars / 4,178 bytes
+
+약 72% 감소
+```
+
+Structured API Contract는 유지:
+
+```text
+programs 5
+sources 5
+actions 10
+```
+
+# 14. QA P0 Closure — PUBLIC VERIFIED
+
+[EXPERIMENT / PUBLIC VERIFIED — 2026-09-01]
+
+QA 담당자 검증 이후 발견된 P0 문제와 최종 상태:
+
+| P0 | 문제 | 최종 상태 |
+|---|---|---|
+| 1 | AI 답변 문장 절단 | PUBLIC VERIFIED FIXED |
+| 2 | 반복 `TEMPLATE_FALLBACK / model=null` | PUBLIC VERIFIED FIXED for regression cases |
+| 3 | 준비사항 1/2/3 부재 | PUBLIC VERIFIED FIXED |
+| 4 | 대구 사용자에게 명시적 타지역 공고 상위 노출 | PUBLIC VERIFIED FIXED |
+| 5 | “지금 신청 가능한” 날짜/상태/마감일 정렬 부재 | PUBLIC VERIFIED FIXED |
+
+최종 복합 회귀 질문에서 확인:
+
+```text
+reply_source = LLM
+model = gpt-5.6-luna
+대구 공고 우선 정렬
+문장 절단 없음
+준비사항 1/2/3 출력
+신청기간 출력
+공식 출처 출력
+```
+
+따라서 2026-09-01 기준 AI Chat P0는 Public 환경에서 검증 완료로 기록한다.
+
+주의:
+
+- 특정 외부 LLM 호출은 네트워크/Provider 특성상 향후 일시 실패할 수 있다.
+- 이 경우 structured result / Evidence를 유지하는 deterministic Template Fallback을 서비스 안전장치로 사용한다.
+- `PUBLIC VERIFIED`는 모든 가능한 자연어 입력의 완전 무오류를 의미하지 않으며, 정의된 P0 regression cases가 Public 환경에서 통과했음을 의미한다.
+
+# 15. Test Status
+
+현재 전체 Backend regression:
+
+```text
+222 passed
+```
+
+QA hardening 과정의 test progression:
+
+```text
+189 passed  — Sales analysis 포함 기존 baseline
+215 passed  — 1차 Chat P0 hardening
+219 passed  — compact context / region / OR 보정
+222 passed  — long-query profile + deterministic regional tier 보정
+```
+
+`git diff --check`도 각 수정 단계에서 통과했다.
+
+# 16. Security Status
 
 [EXPERIMENT]
 
-- `.env` Git ignore 확인
-- 실제 `OPENAI_API_KEY` / `BIZINFO_API_KEY` local `.env` 저장
-- Secret Source / 문서 literal scan: 이상 없음
-- Runtime Snapshot metadata에 Secret 없음
-- Bootstrap Secret marker 없음
-- API Key URL 노출 없음
-- `.env` git status 노출 없음
+- `.env` Git ignore
+- OpenAI / Bizinfo Secret은 환경변수 사용
+- Secret literal을 문서 / Source에 기록하지 않음
+- Raw file 영구 업로드 저장 없음
+- API 응답에서 Secret 미노출
+- safe provider log는 error class / reason 수준만 기록
 
-현재 Profile 포함 OpenAI Live Smoke는 개인정보 최소화·동의 정책 미확정으로 수행하지 않았다.
-
-# 13. Frontend Status
+# 17. Frontend Status
 
 Repository:
 
@@ -555,165 +527,87 @@ Repository:
 start-finance-ai/frontend
 ```
 
-2026-08-29 latest main pull 완료.
-
 확인된 Stack:
 
-- React 19.2.4
-- React DOM 19.2.4
-- Vite 8.0.5
-- TypeScript 5.9.3
+- React 19
+- Vite 8
+- TypeScript
 - pnpm
 
-실제 로컬 검증:
+Local:
 
 ```text
-pnpm install  SUCCESS
-pnpm build    SUCCESS
-pnpm dev      SUCCESS
-localhost:8443 화면 표시 SUCCESS
-```
-
-현재 GitHub Frontend의 `vite.config.ts`가 `.figma/make/site.json`을 요구하지만 해당 파일이 Git에 없었다.
-
-로컬 검증에서는 임시 `{}` 파일을 UTF-8 BOM 없이 생성하여 build/dev를 성공시켰다.
-
-이 임시 파일은 정식 Figma 설정으로 확정하지 않는다.
-
-회의 이후 최신 디자인:
-
-```text
-아직 반영 대기
+pnpm install  VERIFIED
+pnpm build    VERIFIED
+pnpm dev      VERIFIED
 ```
 
 Frontend ↔ Backend API Integration:
 
 ```text
-NOT STARTED
+NOT YET PUBLIC VERIFIED
 ```
 
-# 14. Deployment Decision
-
-[TEAM DECISION — 2026-08-29]
+Frontend Public Vercel Deployment:
 
 ```text
-Frontend = Vercel Hobby
-Backend  = Railway Hobby
-DB       = None for MVP
+NOT YET PUBLIC VERIFIED
 ```
 
-Railway PostgreSQL은 현재 추가하지 않는다.
-
-Backend Public URL:
-
-```text
-DEPLOYED / PUBLIC HTTPS VERIFIED
-```
-
-Frontend Public URL:
-
-```text
-NOT CREATED / NOT VERIFIED
-```
-
-## Railway Public Deployment
-
-Status:
-
-```text
-PUBLIC VERIFIED
-```
-
-구현·검증:
-
-- Region = Southeast Asia / Singapore
-- Railway Dashboard-based deployment contract 확정
-- Builder = Railpack
-- `.python-version` = `3.14.3`
-- Start Command = `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Health Check = `/health`
-- Public Networking = Generate Domain
-- Database / Volume / Docker 없음
-- `FINBRIDGE_CORS_ORIGINS` exact-origin parser와 CORS middleware
-- default local origin `http://localhost:8443`
-- wildcard origin 거부
-- Secret·`.env`·runtime Snapshot 없는 clean venv/import 성공
-- 실제 Uvicorn TCP 기동 후 `/health`, `/programs`, `/chat` template fallback,
-  `/risk/calculate`, allowed/disallowed CORS 검증
-- Public HTTPS Backend 정상 접근
-- Public `GET /health` → HTTP 200, `{"status":"ok","service":"FinBridge"}`
-- Public `GET /programs?query=창업&limit=5` → HTTP 200, BIZINFO 지원사업 5건
-- Public `POST /risk/calculate` → HTTP 200, deterministic calculation 정상
-- Public `POST /chat` → HTTP 200, `reply_source=LLM`, `model=gpt-5.6-luna`
-- Public `/chat` Retrieval / Evidence / Source 유지
-- 2026-08-30 출력 토큰 보정 재배포 당시 Public `/chat` 문장 절단 해소 확인
-- 2026-08-31 후속 QA 재현에 대한 로컬 P0 보강은 Public 재검증 대기
-
-Config as Code 파일과 `.railway/railway.ts`는 사용하지 않는다. 현재 상태는 Railway
-Dashboard-based deployment 및 Public HTTPS smoke `VERIFIED`이다. `/health`, `/programs`,
-`/risk/calculate`, `/chat`을 외부에서 검증했고, 2026-08-30 출력 토큰 보정 당시
-`/chat`도 재검증했다. 2026-08-31 로컬 P0 보강은 재배포 전이며 Public 재검증이
-필요하다. `MISE_PYTHON_COMPILE=1`은 사전 설정하지 않는다.
-
-현재 배포 P0:
-
-- 최종 Vercel URL 확정 후 CORS Variable 설정
-- 최신 디자이너 Frontend 반영 확인
-- Frontend ↔ Backend 연동
-- Vercel Public Deployment
-- Public End-to-End QA
-
-# 15. Current Repository / Git Note
-
-이번 문서 최신화 시작 전 `git status`는 clean이었다.
-이번 작업은 문서만 수정하며 commit / push는 수행하지 않는다.
-
-Frontend에서는 로컬 실행을 위해 만든:
-
-- `.gitignore`
-- `.figma/make/site.json`
-
-이 정식 팀 변경인지 아직 확정하지 않았다.
-디자이너 최신 push와 충돌하지 않도록 임의 commit을 피한다.
-
-# 16. Current Blockers
-
-## P0
-
-1. 최신 디자이너 Frontend 반영 확인
-2. Frontend ↔ Backend 연동
-3. Vercel Public Deployment
-4. Public End-to-End QA
+# 18. Remaining QA / P1 / P2
 
 ## P1
 
-- 대표 Demo 공고 5~10건 Human Review
-- Profile/개인정보 외부 LLM 전달 정책 최소 확정
+- Sales exact duplicate row: 자동 삭제보다는 warning 방식 검토
+- Risk: positive cashflow인데 `runway=0`처럼 보일 수 있는 UI 의미 보정 / `N/A` 또는 “현금 소진 없음” 표현 검토
+- Runway 기준 시점 / 잔존채무 계산 설명 보강
+- Income Stability: 평균 / 모집단 표준편차 / CV 설명, 임의 안정성 threshold 생성 금지
+- Frontend API integration 후 실제 화면에서 Loading / Empty / Needs Review / Error 검증
+
+## P2
+
+- Backend error code 사용자용 한글 메시지 매핑
+- 날짜 입력 허용 범위 추가 검토
+- UI에서 0과 blank 구분
+- 금융 계산의 기준 / 한계 안내 강화
+
+# 19. Current Blockers
+
+## Submission P0
+
+1. 최신 Frontend 디자인 pull / 충돌 확인
+2. Frontend ↔ Backend API Integration
+3. Vercel Public Deployment
+4. Public E2E QA
+5. 최종 기능명세서에는 실제 Public URL에서 검증된 기능만 반영
 
 ## Not Current Blocker
 
-- K-Startup
+- K-Startup 추가 Source
 - Vector DB
 - Graph DB
 - Multi-Agent
 - PostgreSQL
-- Scheduler
+- Scheduler / Cron
 - 전체 기업마당 분야 Coverage
 
-# 17. Immediate Next Tasks
-
-현재 순서:
+# 20. Immediate Next Tasks
 
 ```text
-1. 최신 디자이너 Frontend 반영 확인
-2. Frontend ↔ Backend 연동
-3. Vercel Public Deployment
-4. Public E2E QA
+1. QA P0 Public Verified 문서 반영 / commit
+2. QA 담당 핵심 regression 재확인
+3. P1 duplicate warning / risk semantics 최소 보정 여부 결정
+4. 최신 Frontend pull
+5. Frontend API Contract integration
+6. Vercel deployment
+7. Public E2E QA
+8. 기능명세서 / 기획서 최종화
 ```
 
-# 18. Submission Rule
+# 21. Submission Rule
 
 - 공식 기능명세서에는 최종 Public URL에서 실제 구현·검증된 기능만 작성한다.
-- 기획서에서는 현재 구현 범위와 향후 확장 방향을 명확히 구분한다.
-- `PLANNED`, `DRAFT`, `DEMO`, 미구현 기능을 실제 완료 기능처럼 쓰지 않는다.
-- Public URL / Frontend Integration / Deployment는 실제 외부 검증 전까지 완료로 표시하지 않는다.
+- 기획서에서는 실제 구현 범위와 향후 확장 방향을 구분한다.
+- `PLANNED`, `DRAFT`, `DEMO`, 미구현 기능을 실제 완료 기능처럼 작성하지 않는다.
+- AI가 최종 지원자격, 대출 승인, 금융기관 판정을 보장한다고 표현하지 않는다.
+- 지원사업의 실제 정보는 공식 Source / Snapshot / Evidence에서 확인된 값만 표시한다.
