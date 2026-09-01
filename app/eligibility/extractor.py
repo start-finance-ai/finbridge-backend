@@ -56,6 +56,43 @@ _REGION_GENDER_PATTERN = re.compile(
     r"경기|강원|충북|충남|전북|전남|경북|경남|제주)"
     r"지역\s*여성\s*중"
 )
+_REGION_ADDRESS_PATTERN = re.compile(
+    r"(?P<value>"
+    r"(?:서울|부산|대구|인천|광주|대전|울산|세종)(?:광역시|특별자치시)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"(?:경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별자치도|도|지역)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"[가-힣]{1,8}(?:시|군|구)"
+    r")\s*(?:에\s*)?(?:주소(?:지)?를\s*둔|거주(?:하는|중인))"
+)
+_REGION_AFTER_LABEL_PATTERN = re.compile(
+    r"(?:주소지|거주지|사업장(?:\s*소재지)?|본점(?:\s*소재지)?)"
+    r".{0,60}?"
+    r"(?P<value>"
+    r"(?:서울|부산|대구|인천|광주|대전|울산|세종)(?:광역시|특별자치시)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"(?:경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별자치도|도|지역)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"[가-힣]{1,8}(?:시|군|구)"
+    r")"
+)
+_REGION_BUSINESS_REGISTRATION_PATTERN = re.compile(
+    r"(?P<value>"
+    r"(?:서울|부산|대구|인천|광주|대전|울산|세종)(?:광역시|특별자치시)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"(?:경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별자치도|도|지역)?"
+    r"(?:\s+[가-힣]{1,8}(?:시|군|구))?|"
+    r"[가-힣]{1,8}(?:시|군|구)"
+    r")\s*(?:에|에서).{0,50}?사업자\s*등록"
+)
+_REGION_NAME_PATTERN = re.compile(
+    r"(?P<value>"
+    r"(?:서울|부산|대구|인천|광주|대전|울산|세종)(?:광역시|특별자치시)?|"
+    r"(?:경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별자치도|도|지역)?|"
+    r"[가-힣]{1,8}(?:시|군|구)"
+    r")"
+)
+_BARE_LOCAL_SCOPE = re.compile(r"관내|도내")
 _AGE_RANGE_PATTERN = re.compile(
     r"(?:만\s*)?(?P<minimum>\d{1,3})\s*세?\s*"
     r"(?:이상\s*)?(?:~|～|-)\s*(?:만\s*)?"
@@ -84,17 +121,30 @@ _PRE_FOUNDER_PATTERN = re.compile(
 _EXISTING_BUSINESS_PATTERN = re.compile(
     r"기\s*창업자|초기창업자|초기창업기업|창업기업|스타트업|사업자등록증상"
 )
-_COMPLETE_ALTERNATIVE_PATTERN = re.compile(
+_BUSINESS_AGE_ALTERNATIVE_TEXT = (
+    r"(?:(?:업력|창업(?:\s*후)?)\s*\d{1,2}\s*년\s*(?:이내|이하|미만)|"
+    r"\d{1,2}\s*년\s*(?:이내|이하|미만).{0,20}"
+    r"(?:기\s*창업자|창업기업|스타트업))"
+)
+_FORWARD_COMPLETE_ALTERNATIVE_PATTERN = re.compile(
     r"예비.{0,12}창업.{0,100}(?:또는|/|,).{0,100}"
-    r"(?:업력|\d{1,2}\s*년\s*(?:이내|이하|미만).{0,20}(?:기\s*창업자|창업기업))"
-    r"|\(예비창업가\).{0,300}\(기창업자\)"
+    + _BUSINESS_AGE_ALTERNATIVE_TEXT
+    + r"|\(예비창업가\).{0,300}\(기창업자\)"
+)
+_REVERSE_COMPLETE_ALTERNATIVE_PATTERN = re.compile(
+    _BUSINESS_AGE_ALTERNATIVE_TEXT
+    + r".{0,50}(?:또는|/|,)\s*.{0,80}예비.{0,12}창업"
 )
 _INCOMPLETE_ALTERNATIVE_PATTERN = re.compile(
     r"예비.{0,12}창업.{0,80}(?:또는|/).{0,80}(?:초기창업|창업기업)"
 )
 _BRANCH_SPECIFIC_PATTERN = re.compile(r"\(아이디어\s*부문\)|\(사업화\s*부문\)")
 _CONDITIONAL_REGION_ALTERNATIVE = re.compile(
-    r"(?:주소지|거주지).{0,40}(?:또는|OR).{0,80}(?:주소\s*이전|전입)"
+    r"(?:주소지|거주지|소재).{0,60}(?:또는|OR).{0,100}"
+    r"(?:주소\s*이전|전입|이전\s*(?:예정|가능))"
+)
+_OTHER_REGION_ALLOWED = re.compile(
+    r"타\s*지역(?:민|주민|거주자)?.{0,80}(?:신청|지원)\s*가능"
 )
 
 
@@ -124,11 +174,19 @@ class EligibilityExtractor:
         common_drafts: list[_ConditionDraft] = []
         group_drafts: list[list[_ConditionDraft]] = []
 
-        region = (
-            None
-            if _CONDITIONAL_REGION_ALTERNATIVE.search(target_text)
-            else _extract_region(target_text)
+        has_region_alternative = bool(
+            _CONDITIONAL_REGION_ALTERNATIVE.search(target_text)
+            or _OTHER_REGION_ALLOWED.search(target_text)
         )
+        region = None if has_region_alternative else _extract_region(target_text)
+        if region is None and not has_region_alternative:
+            region = _extract_region(summary)
+        if (
+            region is None
+            and not has_region_alternative
+            and _BARE_LOCAL_SCOPE.search(target_text)
+        ):
+            region = _extract_region_from_intro(summary)
         if region is not None:
             common_drafts.append(region)
 
@@ -143,7 +201,10 @@ class EligibilityExtractor:
         has_complete_alternative = bool(
             pre_founder
             and business_age
-            and _COMPLETE_ALTERNATIVE_PATTERN.search(target_text)
+            and (
+                _FORWARD_COMPLETE_ALTERNATIVE_PATTERN.search(target_text)
+                or _REVERSE_COMPLETE_ALTERNATIVE_PATTERN.search(target_text)
+            )
             and not has_branch_specific_structure
         )
         has_incomplete_alternative = bool(
@@ -168,6 +229,7 @@ class EligibilityExtractor:
             target_text,
             has_conditions=bool(common_drafts or group_drafts),
             has_incomplete_alternative=has_incomplete_alternative,
+            has_region_alternative=has_region_alternative,
         )
         return self._program(
             program,
@@ -182,6 +244,7 @@ class EligibilityExtractor:
         *,
         has_conditions: bool,
         has_incomplete_alternative: bool,
+        has_region_alternative: bool,
     ) -> ProgramExtractionStatus:
         if _UNSUPPORTED_STUDENT.search(target_text):
             return ProgramExtractionStatus.UNSUPPORTED
@@ -193,6 +256,7 @@ class EligibilityExtractor:
             _REFERENCE_MARKERS.search(target_text)
             or _REVIEW_ONLY_MARKERS.search(target_text)
             or has_incomplete_alternative
+            or has_region_alternative
             or _BRANCH_SPECIFIC_PATTERN.search(target_text)
         ):
             return ProgramExtractionStatus.NEEDS_REVIEW
@@ -277,6 +341,9 @@ def _extract_region(text: str) -> _ConditionDraft | None:
     matches = list(_REGION_PATTERN.finditer(text))
     matches.extend(_REGION_AFTER_LOCATION_PATTERN.finditer(text))
     matches.extend(_REGION_GENDER_PATTERN.finditer(text))
+    matches.extend(_REGION_ADDRESS_PATTERN.finditer(text))
+    matches.extend(_REGION_AFTER_LABEL_PATTERN.finditer(text))
+    matches.extend(_REGION_BUSINESS_REGISTRATION_PATTERN.finditer(text))
     for match in sorted(matches, key=lambda candidate: candidate.start()):
         value = _canonical_region(match.group("value"))
         if value == "전국" or value == "지역":
@@ -290,6 +357,22 @@ def _extract_region(text: str) -> _ConditionDraft | None:
             evidence_text=_evidence(text, match),
         )
     return None
+
+
+def _extract_region_from_intro(summary: str) -> _ConditionDraft | None:
+    intro = summary.split("☞", maxsplit=1)[0]
+    matches = list(_REGION_NAME_PATTERN.finditer(intro))
+    if not matches:
+        return None
+    match = matches[-1]
+    return _ConditionDraft(
+        condition_type=ConditionType.REGION_OR_LOCATION,
+        subject=Subject.BUSINESS,
+        operator=Operator.EQ,
+        raw_value=match.group("value"),
+        value=_canonical_region(match.group("value")),
+        evidence_text=_evidence(summary, match, radius=180),
+    )
 
 
 def _extract_age(text: str) -> list[_ConditionDraft]:

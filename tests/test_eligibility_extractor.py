@@ -171,6 +171,28 @@ def test_conditional_move_region_path_is_not_made_a_common_requirement() -> None
     assert result.match_status is MatchStatus.NEEDS_REVIEW
 
 
+def test_other_region_allowed_evidence_stays_needs_review() -> None:
+    extracted = EligibilityExtractor().extract(
+        program(
+            "안내 ☞ 울산시에 주소를 둔 사업자 미등록 예비창업자 "
+            "※ 타 지역민도 신청 가능하나 자격조건은 공고문 참조 ☞ 지원내용"
+        )
+    )
+
+    assert all(
+        condition.condition_type is not ConditionType.REGION_OR_LOCATION
+        for condition in conditions(extracted)
+    )
+    assert (
+        extracted.eligibility_extraction_status
+        is ProgramExtractionStatus.NEEDS_REVIEW
+    )
+    result = EligibilityMatcher().match(
+        extracted, UserProfile(region="대구", pre_founder=True)
+    )
+    assert result.match_status is MatchStatus.NEEDS_REVIEW
+
+
 def test_extracts_explicit_pre_founder_status() -> None:
     extracted = EligibilityExtractor().extract(
         program("안내 ☞ 공고일 기준 예비창업자 ☞ 지원내용")
@@ -223,6 +245,20 @@ def test_clear_pre_founder_or_business_age_is_stored_as_or_groups() -> None:
     } == {ConditionType.PRE_FOUNDER, ConditionType.BUSINESS_AGE}
 
 
+def test_reverse_business_age_or_pre_founder_is_stored_as_or_groups() -> None:
+    extracted = EligibilityExtractor().extract(
+        program("안내 ☞ 창업 7년 이내 스타트업 또는 예비창업자 ☞ 지원내용")
+    )
+
+    assert len(extracted.eligibility_groups) == 2
+    result = EligibilityMatcher().match(
+        extracted,
+        UserProfile(pre_founder=True),
+    )
+    assert result.match_status is MatchStatus.MATCH
+    assert result.reason == "ELIGIBILITY_PATH_SATISFIED"
+
+
 def test_actual_raw_snapshot_coverage_and_statuses(snapshot_path) -> None:
     programs = ProgramRepository(snapshot_path).list()
     extracted = [EligibilityExtractor().extract(item) for item in programs]
@@ -236,14 +272,14 @@ def test_actual_raw_snapshot_coverage_and_statuses(snapshot_path) -> None:
     )
 
     assert len(programs) == 20
-    assert sum(bool(conditions(item)) for item in extracted) == 17
+    assert sum(bool(conditions(item)) for item in extracted) == 18
     assert status_counts == {
         ProgramExtractionStatus.SUPPORTED: 3,
         ProgramExtractionStatus.NEEDS_REVIEW: 16,
         ProgramExtractionStatus.UNSUPPORTED: 1,
     }
     assert type_counts == {
-        ConditionType.REGION_OR_LOCATION: 10,
+        ConditionType.REGION_OR_LOCATION: 12,
         ConditionType.AGE: 4,
         ConditionType.PRE_FOUNDER: 5,
         ConditionType.BUSINESS_AGE: 9,

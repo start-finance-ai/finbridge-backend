@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +23,12 @@ from tests.conftest import ASGITestClient, TEST_BIZINFO_SNAPSHOT
 
 WATER_PROGRAM_ID = "PBLN_000000000125666"
 DAEGU_PRE_FOUNDER_PROGRAM_ID = "PBLN_000000000125612"
+BOOTSTRAP_SNAPSHOT = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "bootstrap"
+    / "bizinfo_startup_bootstrap.json"
+)
 
 
 class StubProvider:
@@ -226,7 +234,8 @@ def test_general_chat_retrieves_top_n_with_evidence_and_sources(
     assert len(payload["sources"]) == len(payload["programs"])
     assert payload["evidence"]
     assert payload["program_context_id"] is None
-    assert '"retrieval_score"' in provider.calls[0]
+    assert '"retrieval_score"' not in provider.calls[0]
+    assert '"eligibility_evidence"' in provider.calls[0]
     assert '"raw_source"' not in provider.calls[0]
 
 
@@ -280,6 +289,35 @@ def test_general_message_explicit_profile_drives_matching_and_region_ranking(
             or any("대구" in str(condition.value) for condition in region_conditions)
         )
     assert kept_unknown_region is True
+
+
+def test_public_snapshot_daegu_profile_excludes_explicit_other_local_only() -> None:
+    service = ProgramService(ProgramRepository(BOOTSTRAP_SNAPSHOT))
+    retrieval = ProgramRetrievalService(service)
+    message = "대구 28세 예비창업자 사업자 미등록 지원사업 알려줘"
+    profile = extract_explicit_profile(message)
+    assert profile is not None
+
+    response = retrieval.search(
+        ProgramSearchRequest(
+            query=message,
+            region=profile.region,
+            business_status=profile.business_status,
+            user_type=profile.user_type,
+            profile=profile,
+            limit=20,
+        )
+    )
+    result_ids = {item.program.program_id for item in response.results}
+
+    assert {
+        "PBLN_000000000125900",  # 경기 안산시 관내
+        "PBLN_000000000123753",  # 경기 안산시 관내
+        "PBLN_000000000120031",  # 경기 안산시 관내
+        "PBLN_000000000125622",  # 울산 울주군민
+        "PBLN_000000000121148",  # 울산 소재 사업장
+    }.isdisjoint(result_ids)
+    assert "PBLN_000000000116904" in result_ids  # 전국 통합 공고 유지
 
 
 def test_general_message_explicit_profile_is_reused_by_chat_matcher(
@@ -457,7 +495,10 @@ def test_general_risk_message_does_not_run_program_retrieval(
 
     assert response.status_code == 200
     assert response.json()["programs"] == []
-    assert '"retrieval":null' in provider.calls[0]
+    context_text = provider.calls[0].split(
+        "Structured Context(JSON):\n", maxsplit=1
+    )[1]
+    assert json.loads(context_text)["programs"] == []
 
 
 def test_focus_mode_does_not_implicitly_run_general_retrieval(

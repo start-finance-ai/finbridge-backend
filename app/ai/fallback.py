@@ -101,6 +101,7 @@ def _build_structured_program_reply(
     evidence_by_id: dict[str, list[Mapping[str, Any]]] = {}
     for item in context.get("evidence") or []:
         evidence_by_id.setdefault(item["program_id"], []).append(item)
+    ignored_by_id = context.get("ignored_or_condition_ids") or {}
 
     lines = [
         f"현재 확보된 공고 범위에서 후보 {len(programs)}건을 찾았습니다. "
@@ -114,7 +115,13 @@ def _build_structured_program_reply(
         match = matches_by_id.get(program_id)
         lines.append(f"\n{index}. {program['program_name']}")
         if match:
-            condition_results = match.get("condition_results") or []
+            ignored_ids = set(ignored_by_id.get(program_id) or [])
+            condition_results = [
+                item
+                for item in match.get("condition_results") or []
+                if item.get("condition_id") not in ignored_ids
+            ]
+            path_satisfied = match.get("match_status") == "MATCH"
             confirmed = _expected_conditions(
                 condition_results,
                 lambda item: item.get("status") == "MATCH"
@@ -122,22 +129,27 @@ def _build_structured_program_reply(
             )
             mismatched = _expected_conditions(
                 condition_results,
-                lambda item: (
-                    item.get("status") == "NO_MATCH"
-                    and not item.get("is_exclusion")
-                )
-                or (
-                    item.get("status") == "MATCH"
-                    and item.get("is_exclusion")
+                lambda item: not path_satisfied
+                and (
+                    (
+                        item.get("status") == "NO_MATCH"
+                        and not item.get("is_exclusion")
+                    )
+                    or (
+                        item.get("status") == "MATCH"
+                        and item.get("is_exclusion")
+                    )
                 ),
             )
             uncertain = _condition_names(
                 condition_results,
-                lambda item: item.get("status") in {"NEEDS_REVIEW", "UNKNOWN"},
+                lambda item: not path_satisfied
+                and item.get("status") in {"NEEDS_REVIEW", "UNKNOWN"},
             )
             missing = _condition_names(
                 condition_results,
-                lambda item: item.get("reason") == "REQUIRED_USER_VALUE_MISSING",
+                lambda item: not path_satisfied
+                and item.get("reason") == "REQUIRED_USER_VALUE_MISSING",
             )
             missing_labels.extend(missing)
             if confirmed:

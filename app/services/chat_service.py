@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
 _LLM_PRIMARY_PROGRAM_LIMIT = 3
+_LLM_EVIDENCE_LIMIT_PER_PROGRAM = 3
 
 
 class ChatService:
@@ -132,6 +133,17 @@ class ChatService:
             for program in raw_programs
             for action in self._actions(program)
         ]
+        ignored_or_condition_ids = {
+            program.program_id: ignored_ids
+            for program in raw_programs
+            if program.program_id in match_by_program
+            if (
+                ignored_ids := _ignored_unsatisfied_or_condition_ids(
+                    eligibility_by_program[program.program_id],
+                    match_by_program[program.program_id],
+                )
+            )
+        }
         single_match = matches[0] if request.program_id and matches else None
         match_status = single_match.match_status if single_match else None
         suggest_focus_mode = (
@@ -141,7 +153,11 @@ class ChatService:
         structured_context = {
             "mode": request.mode.value,
             "focus_profile": (
-                effective_profile.model_dump(mode="json", exclude_none=True)
+                effective_profile.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    exclude_defaults=True,
+                )
                 if effective_profile
                 else None
             ),
@@ -161,6 +177,7 @@ class ChatService:
                 if retrieval is not None
                 else None
             ),
+            "ignored_or_condition_ids": ignored_or_condition_ids,
             "limitations": {
                 "general_program_discovery_supported": True,
                 "retrieval_method": "STRUCTURED_EXACT_KEYWORD_BASELINE",
@@ -273,42 +290,93 @@ class ChatService:
     def _provider_context(structured_context: dict[str, object]) -> dict[str, object]:
         programs = list(structured_context.get("programs") or [])
         primary_programs = programs[:_LLM_PRIMARY_PROGRAM_LIMIT]
-        primary_ids = {item["program_id"] for item in primary_programs}
-
-        compact_programs = []
-        for item in primary_programs:
-            compact = dict(item)
-            compact["target_text"] = _compact_context_text(item.get("target_text"), 300)
-            compact["summary_text"] = _compact_context_text(item.get("summary_text"), 600)
-            compact["application_method_text"] = _compact_context_text(
-                item.get("application_method_text"), 300
-            )
-            compact_programs.append(compact)
-
-        provider_context = dict(structured_context)
-        provider_context["programs"] = compact_programs
-        for key in ("matches", "evidence", "sources", "retrieval"):
-            items = structured_context.get(key)
-            if isinstance(items, list):
-                provider_context[key] = [
-                    item
-                    for item in items
-                    if item.get("program_id") in primary_ids
-                ]
-        provider_context["additional_candidates"] = [
-            {
-                "program_id": item["program_id"],
-                "program_name": item["program_name"],
-                "application_status": item["application_status"],
-                "source_url": item.get("source_url"),
-            }
-            for item in programs[_LLM_PRIMARY_PROGRAM_LIMIT:]
-        ]
-        provider_context["reply_policy"] = {
-            "detailed_program_limit": _LLM_PRIMARY_PROGRAM_LIMIT,
-            "structured_program_count": len(programs),
+        matches_by_id = {
+            item["program_id"]: item
+            for item in structured_context.get("matches") or []
         }
-        return provider_context
+        evidence_by_id: dict[str, list[dict[str, object]]] = {}
+        for item in structured_context.get("evidence") or []:
+            evidence_by_id.setdefault(item["program_id"], []).append(item)
+        ignored_by_id = structured_context.get("ignored_or_condition_ids") or {}
+
+        compact_programs: list[dict[str, object]] = []
+        for item in primary_programs:
+            program_id = item["program_id"]
+            match = matches_by_id.get(program_id)
+            relevant_results = _relevant_llm_condition_results(
+                match,
+                set(ignored_by_id.get(program_id) or []),
+            )
+            relevant_ids = {
+                result["condition_id"] for result in relevant_results
+            }
+            program_evidence = evidence_by_id.get(program_id, [])
+            if relevant_ids:
+                program_evidence = [
+                    evidence
+                    for evidence in program_evidence
+                    if evidence["condition_id"] in relevant_ids
+                ]
+            compact_evidence = []
+            seen_evidence: set[str] = set()
+            status_by_condition = {
+                result["condition_id"]: result.get("status")
+                for result in relevant_results
+            }
+            for evidence in program_evidence:
+                evidence_text = _compact_context_text(
+                    evidence.get("evidence_text"), 220
+                )
+                if not evidence_text or evidence_text in seen_evidence:
+                    continue
+                seen_evidence.add(evidence_text)
+                compact_evidence.append(
+                    {
+                        "condition_type": evidence["condition_type"],
+                        "status": status_by_condition.get(evidence["condition_id"]),
+                        "evidence_text": evidence_text,
+                    }
+                )
+                if len(compact_evidence) >= _LLM_EVIDENCE_LIMIT_PER_PROGRAM:
+                    break
+
+            compact_programs.append(
+                {
+                    "program_id": program_id,
+                    "program_name": item["program_name"],
+                    "provider": item.get("provider"),
+                    "eligibility_evidence": compact_evidence,
+                    "deterministic_match": (
+                        {
+                            "match_status": match["match_status"],
+                            "reason": match["reason"],
+                        }
+                        if match
+                        else None
+                    ),
+                    "apply_period_text": item.get("apply_period_text"),
+                    "application_status": item["application_status"],
+                    "application_method_text": _compact_context_text(
+                        item.get("application_method_text"), 180
+                    ),
+                    "source_url": item.get("source_url"),
+                }
+            )
+
+        return {
+            "user_profile": structured_context.get("focus_profile"),
+            "programs": compact_programs,
+            "reply_policy": {
+                "detailed_program_limit": _LLM_PRIMARY_PROGRAM_LIMIT,
+                "visible_token_target": "700-900",
+                "visible_token_hard_limit": 900,
+                "required_final_lines": [
+                    "준비사항 1순위",
+                    "준비사항 2순위",
+                    "준비사항 3순위",
+                ],
+            },
+        }
 
     @staticmethod
     def _chat_match(match: MatchResponse) -> ChatMatch:
@@ -399,3 +467,51 @@ def _compact_context_text(value: object, limit: int) -> str | None:
     if boundary >= limit // 2:
         return plain[: boundary + 1]
     return plain[:limit].rstrip() + " …(원문 일부)"
+
+
+def _relevant_llm_condition_results(
+    match: dict[str, object] | None,
+    ignored_condition_ids: set[str],
+) -> list[dict[str, object]]:
+    if not match:
+        return []
+    results = [
+        result
+        for result in match.get("condition_results") or []
+        if result.get("condition_id") not in ignored_condition_ids
+    ]
+    if match.get("match_status") == MatchStatus.MATCH.value:
+        return [
+            result
+            for result in results
+            if result.get("status") == MatchStatus.MATCH.value
+            and not result.get("is_exclusion")
+        ]
+    return results
+
+
+def _ignored_unsatisfied_or_condition_ids(
+    eligibility: ProgramEligibility,
+    match: MatchResponse,
+) -> list[str]:
+    if not eligibility.eligibility_groups:
+        return []
+    status_by_id = {
+        result.condition_id: result.status for result in match.condition_results
+    }
+    satisfied_group_ids = {
+        group.group_id
+        for group in eligibility.eligibility_groups
+        if all(
+            status_by_id.get(condition.condition_id) is MatchStatus.MATCH
+            for condition in group.conditions
+        )
+    }
+    if not satisfied_group_ids:
+        return []
+    return [
+        condition.condition_id
+        for group in eligibility.eligibility_groups
+        if group.group_id not in satisfied_group_ids
+        for condition in group.conditions
+    ]

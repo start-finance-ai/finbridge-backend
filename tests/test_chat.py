@@ -7,6 +7,7 @@ import httpx
 import openai
 import pytest
 
+from app.ai.fallback import build_template_reply
 from app.ai.provider import (
     AIExplanation,
     AIProviderAuthenticationError,
@@ -19,6 +20,7 @@ from app.ai.provider import (
 )
 from app.config import OpenAISettings, get_openai_settings
 from app.main import create_app
+from app.schemas.matching import MatchStatus
 from tests.conftest import ASGITestClient
 
 
@@ -458,6 +460,82 @@ def test_llm_context_limits_detailed_candidates_but_response_keeps_contract(
     context = json.loads(context_text)
 
     assert len(payload["programs"]) == 5
+    assert len(payload["sources"]) == 5
+    assert len(payload["actions"]) >= 5
     assert len(context["programs"]) == 3
-    assert len(context["additional_candidates"]) == 2
+    assert set(context) == {"user_profile", "programs", "reply_policy"}
+    assert set(context["programs"][0]) == {
+        "program_id",
+        "program_name",
+        "provider",
+        "eligibility_evidence",
+        "deterministic_match",
+        "apply_period_text",
+        "application_status",
+        "application_method_text",
+        "source_url",
+    }
     assert context["reply_policy"]["detailed_program_limit"] == 3
+    assert context["reply_policy"]["visible_token_hard_limit"] == 900
+    assert len(context_text) < 4000
+    assert "summary_text" not in context_text
+    assert "target_text" not in context_text
+    assert '"sources"' not in context_text
+    assert '"actions"' not in context_text
+    assert "최대 3개만 상세 설명" in provider.calls[0]["instructions"]
+    assert "준비사항 1순위:" in provider.calls[0]["instructions"]
+    assert "준비사항 2순위:" in provider.calls[0]["instructions"]
+    assert "준비사항 3순위:" in provider.calls[0]["instructions"]
+
+
+def test_satisfied_or_path_does_not_require_missing_business_age_in_fallback() -> None:
+    context = {
+        "programs": [
+            {
+                "program_id": "PBLN_OR",
+                "program_name": "예비창업자 또는 업력 7년 이내 공고",
+                "apply_period_text": "2026-09-01 ~ 2026-09-30",
+                "application_status": "OPEN",
+                "source_url": "https://example.invalid/or",
+            }
+        ],
+        "matches": [
+            {
+                "program_id": "PBLN_OR",
+                "match_status": "NEEDS_REVIEW",
+                "reason": "PROGRAM_ELIGIBILITY_NEEDS_REVIEW",
+                "condition_results": [
+                    {
+                        "condition_id": "pre-founder",
+                        "condition_type": "pre_founder",
+                        "status": "MATCH",
+                        "is_exclusion": False,
+                        "raw_expected_value": "예비창업자",
+                        "reason": "PREDICATE_TRUE",
+                    },
+                    {
+                        "condition_id": "business-age",
+                        "condition_type": "business_age",
+                        "status": "NEEDS_REVIEW",
+                        "is_exclusion": False,
+                        "raw_expected_value": "업력 7년 이내",
+                        "reason": "REQUIRED_USER_VALUE_MISSING",
+                    },
+                ],
+            }
+        ],
+        "ignored_or_condition_ids": {"PBLN_OR": ["business-age"]},
+    }
+
+    reply = build_template_reply(
+        match_status=MatchStatus.NEEDS_REVIEW,
+        has_program_context=True,
+        has_profile=True,
+        structured_context=context,
+    )
+
+    assert "추가로 필요한 사용자 정보" not in reply
+    assert "부족한 자격조건 정보(업력)" not in reply
+    assert "준비사항 1순위:" in reply
+    assert "준비사항 2순위:" in reply
+    assert "준비사항 3순위:" in reply

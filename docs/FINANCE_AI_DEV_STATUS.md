@@ -494,6 +494,21 @@ Local QA P0 보강 (2026-08-31, **NOT PUBLIC VERIFIED**):
 - 전체 Backend tests `215 passed`
 - 이번 보강은 Railway 재배포 및 Public `/chat` 재검증 전이므로 PUBLIC VERIFIED로 간주하지 않음
 
+Local QA 안정화 (2026-09-01, **NOT PUBLIC VERIFIED**):
+
+- Railway 로그에서 확인된 `/chat` fallback 원인은 `TIMEOUT`과 `MAX_OUTPUT_TOKENS`
+- timeout `30초`, max output `1200`, transient retry 최대 1회 및 incomplete structured fallback 유지
+- 동일한 69건 bootstrap·대구 28세 예비창업 질문에서 LLM Context JSON을
+  `10,786자 / 14,854 bytes`에서 `2,982자 / 4,178 bytes`로 약 72% 축소
+- LLM 상세 후보 최대 3건, 후보별 핵심 Eligibility/Match/기간/상태/신청방법 요약/공식 URL만 전달;
+  Response의 programs/evidence/sources/actions 계약은 유지
+- 답변 visible token 상한 900과 준비사항 1/2/3 마지막 출력 규칙을 prompt에 명시
+- 명시적 타 시·도 local-only Evidence 추출을 보강하고 전국 공고는 유지;
+  주소 이전·타지역민 허용 Evidence는 자동 제외 대신 `NEEDS_REVIEW` 유지
+- 예비창업자와 업력 조건의 정방향·역방향 OR를 보존하고, 충족되지 않은 다른 OR 경로의
+  업력 누락은 LLM Context와 structured fallback 준비사항에서 제외
+- 전체 Backend tests `219 passed`; Railway 재배포·Public 재검증 전이므로 PUBLIC VERIFIED 아님
+
 Provider failure:
 
 ```text
