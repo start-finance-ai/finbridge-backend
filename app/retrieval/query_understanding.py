@@ -56,7 +56,8 @@ _BUSINESS_AGE = re.compile(
     r"(?P<unit>년|개월)"
 )
 _UNREGISTERED = re.compile(
-    r"사업자\s*(?:등록)?\s*미등록|사업자등록(?:이|은)?\s*없는|미등록\s*사업자"
+    r"사업자\s*(?:등록)?\s*미등록|사업자등록(?:이|은)?\s*없는|미등록\s*사업자|"
+    r"사업자\s*등록(?:은|을|이)?\s*하지\s*않"
 )
 _PRE_FOUNDER = re.compile(r"예비\s*창업(?:자|가)?|창업\s*준비\s*중")
 _EXISTING_BUSINESS = re.compile(

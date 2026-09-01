@@ -5,6 +5,7 @@ import re
 from collections.abc import Iterable
 from collections.abc import Callable
 from datetime import date
+from enum import IntEnum
 
 from app.schemas.eligibility import (
     Condition,
@@ -32,6 +33,33 @@ from app.utils.date_parser import (
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _PUNCTUATION_RE = re.compile(r"[^\w\s]", re.UNICODE)
 _WHITESPACE_RE = re.compile(r"\s+")
+_REGION_EXCEPTION_RE = re.compile(
+    r"타\s*지역(?:민|주민|거주자|기업)?.{0,100}(?:예외|신청|지원|이전|설립)|"
+    r"(?:주소|거주지|사업장|본사|지사|지점).{0,120}"
+    r"(?:이전|전입|설립).{0,30}(?:가능|예정)|"
+    r"(?:소재|거주).{0,100}(?:또는|or).{0,100}"
+    r"(?:이전|전입|설립).{0,30}(?:가능|예정)"
+)
+_NATIONWIDE_RE = re.compile(r"전국\s*(?:대상|소재|기업|예비|창업|지역)?")
+_NATIONWIDE_REGION_MARKERS = (
+    "서울",
+    "부산",
+    "대구",
+    "인천",
+    "광주",
+    "대전",
+    "울산",
+    "세종",
+    "경기",
+    "강원",
+    "충북",
+    "충남",
+    "전북",
+    "전남",
+    "경북",
+    "경남",
+    "제주",
+)
 _ALIASES = {
     "예비 창업": "예비창업",
     "예비 창업자": "예비창업자",
@@ -143,6 +171,14 @@ _MATCHED_FIELD_ORDER = {
 }
 
 
+class _RegionPriority(IntEnum):
+    SAME_REGION = 0
+    NATIONWIDE = 1
+    OTHER_REGION_WITH_EXPLICIT_EXCEPTION = 2
+    REGION_UNKNOWN = 3
+    EXPLICIT_OTHER_REGION_ONLY = 4
+
+
 class ProgramRetrievalService:
     def __init__(
         self,
@@ -168,6 +204,7 @@ class ProgramRetrievalService:
 
     def search(self, request: ProgramSearchRequest) -> ProgramSearchResponse:
         results: list[ProgramSearchResult] = []
+        region_priority_by_id: dict[str, _RegionPriority] = {}
         today = self._today_provider()
         terms = query_terms(request.query) if request.query else []
         generic_intent_only = bool(
@@ -194,6 +231,14 @@ class ProgramRetrievalService:
             if filtered:
                 continue
 
+            region_priority = self._region_priority(
+                program,
+                conditions,
+                request.region,
+            )
+            if region_priority is _RegionPriority.EXPLICIT_OTHER_REGION_ONLY:
+                continue
+
             keyword_score, keyword_fields = self._keyword_score(
                 program, conditions, request.query
             )
@@ -213,12 +258,14 @@ class ProgramRetrievalService:
                     source_url=program.source_url,
                 )
             )
+            region_priority_by_id[program.program_id] = region_priority
 
         if request.sort_by_deadline:
             results.sort(key=self._deadline_sort_key)
         else:
             results.sort(
                 key=lambda result: (
+                    region_priority_by_id[result.program.program_id],
                     -result.retrieval_score,
                     result.program.program_id,
                 )
@@ -288,7 +335,9 @@ class ProgramRetrievalService:
             elif _matches_any(request.region, *metadata_region_texts):
                 score += 30
                 matched_fields.add("region")
-            elif _all_supported(region_conditions):
+            elif _all_supported(region_conditions) and not _has_region_exception(
+                program
+            ):
                 return True, 0, set()
 
         if request.business_status:
@@ -361,6 +410,39 @@ class ProgramRetrievalService:
                 matched_fields.add("structured.business_age")
 
         return False, score, matched_fields
+
+    @staticmethod
+    def _region_priority(
+        program: Program,
+        conditions: list[Condition],
+        requested_region: str | None,
+    ) -> _RegionPriority:
+        if not requested_region:
+            return _RegionPriority.SAME_REGION
+
+        region_conditions = _conditions_of(
+            conditions, ConditionType.REGION_OR_LOCATION
+        )
+        condition_region_texts = [
+            *(condition.value for condition in region_conditions),
+            *(condition.evidence_text for condition in region_conditions),
+        ]
+        if _matches_any(requested_region, *condition_region_texts):
+            return _RegionPriority.SAME_REGION
+        if _matches_any(
+            requested_region,
+            program.program_name,
+            program.provider,
+            program.executing_organization,
+        ):
+            return _RegionPriority.SAME_REGION
+        if _has_region_exception(program):
+            return _RegionPriority.OTHER_REGION_WITH_EXPLICIT_EXCEPTION
+        if _is_nationwide(program):
+            return _RegionPriority.NATIONWIDE
+        if region_conditions:
+            return _RegionPriority.EXPLICIT_OTHER_REGION_ONLY
+        return _RegionPriority.REGION_UNKNOWN
 
     @staticmethod
     def _business_status_compatible(
@@ -576,3 +658,29 @@ def _all_supported(conditions: list[Condition]) -> bool:
         condition.extraction_status is ExtractionStatus.SUPPORTED
         for condition in conditions
     )
+
+
+def _has_region_exception(program: Program) -> bool:
+    summary = normalize_text(program.summary_raw or "")
+    return bool(_REGION_EXCEPTION_RE.search(summary))
+
+
+def _is_nationwide(program: Program) -> bool:
+    searchable_text = normalize_text(
+        " ".join(
+            value
+            for value in (
+                program.program_name,
+                program.target_type_raw,
+                program.summary_raw,
+            )
+            if value
+        )
+    )
+    if _NATIONWIDE_RE.search(searchable_text):
+        return True
+    hashtags = normalize_text(program.hashtags_raw or "")
+    marker_count = sum(
+        marker in hashtags for marker in _NATIONWIDE_REGION_MARKERS
+    )
+    return marker_count >= 8

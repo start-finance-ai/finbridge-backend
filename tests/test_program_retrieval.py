@@ -29,6 +29,13 @@ BOOTSTRAP_SNAPSHOT = (
     / "bootstrap"
     / "bizinfo_startup_bootstrap.json"
 )
+SHORT_DAEGU_PROFILE_QUERY = (
+    "대구 28세 예비창업자 사업자 미등록 지원사업 알려줘"
+)
+LONG_DAEGU_PROFILE_QUERY = """대구에 거주하는 28세 예비창업자이고 아직 사업자등록은 하지 않았습니다.
+제가 지원할 수 있는 사업의 조건 충족 여부와 부족한 정보,
+그리고 지금 준비해야 할 것을 1순위, 2순위, 3순위로 알려주세요.
+신청기간과 공식 공고도 같이 알려주세요."""
 
 
 class StubProvider:
@@ -318,6 +325,72 @@ def test_public_snapshot_daegu_profile_excludes_explicit_other_local_only() -> N
         "PBLN_000000000121148",  # 울산 소재 사업장
     }.isdisjoint(result_ids)
     assert "PBLN_000000000116904" in result_ids  # 전국 통합 공고 유지
+
+
+def test_short_and_long_daegu_queries_extract_the_same_structured_profile() -> None:
+    short_profile = extract_explicit_profile(SHORT_DAEGU_PROFILE_QUERY)
+    long_profile = extract_explicit_profile(LONG_DAEGU_PROFILE_QUERY)
+
+    assert short_profile is not None
+    assert long_profile is not None
+    assert short_profile == long_profile
+    assert short_profile.region == "대구"
+    assert short_profile.business_region == "대구"
+    assert short_profile.age == 28
+    assert short_profile.pre_founder is True
+    assert short_profile.business_status is BusinessStatus.UNREGISTERED
+
+
+@pytest.mark.parametrize(
+    "message",
+    [SHORT_DAEGU_PROFILE_QUERY, LONG_DAEGU_PROFILE_QUERY],
+    ids=["short", "long"],
+)
+def test_daegu_region_tiers_are_stable_across_query_length(message: str) -> None:
+    service = ProgramService(ProgramRepository(BOOTSTRAP_SNAPSHOT))
+    retrieval = ProgramRetrievalService(service)
+    profile = extract_explicit_profile(message)
+    assert profile is not None
+
+    response = retrieval.search(
+        ProgramSearchRequest(
+            query=message,
+            region=profile.region,
+            business_status=profile.business_status,
+            user_type=profile.user_type,
+            profile=profile,
+            limit=20,
+        )
+    )
+    positions = {
+        item.program.program_id: index
+        for index, item in enumerate(response.results)
+    }
+    same_region_ids = {
+        "PBLN_000000000125941",  # 대구 동구
+        "PBLN_000000000125748",  # 대구 여성창업
+    }
+    exception_ids = {
+        "PBLN_000000000125864",  # 영월 주소 이전 가능
+        "PBLN_000000000118665",  # 울산 타 지역민 별도조건
+        "PBLN_000000000119107",  # 전남 타 지역민 예외조건
+    }
+    explicit_other_only_ids = {
+        "PBLN_000000000125900",  # 경기 안산시 관내
+        "PBLN_000000000123753",  # 경기 안산시 관내
+        "PBLN_000000000125622",  # 울산 울주군민
+    }
+
+    assert same_region_ids <= positions.keys()
+    assert exception_ids <= positions.keys()
+    assert "PBLN_000000000116904" in positions  # 전국 통합 공고
+    assert max(positions[item] for item in same_region_ids) < min(
+        positions[item] for item in exception_ids
+    )
+    assert positions["PBLN_000000000116904"] < min(
+        positions[item] for item in exception_ids
+    )
+    assert explicit_other_only_ids.isdisjoint(positions)
 
 
 def test_general_message_explicit_profile_is_reused_by_chat_matcher(

@@ -54,7 +54,7 @@ Database                         NOT USED BY DESIGN
 현재 전체 Backend test 상태:
 
 ```text
-215 passed
+222 passed
 ```
 
 # 3. Backend Technology
@@ -508,6 +508,15 @@ Local QA 안정화 (2026-09-01, **NOT PUBLIC VERIFIED**):
 - 예비창업자와 업력 조건의 정방향·역방향 OR를 보존하고, 충족되지 않은 다른 OR 경로의
   업력 누락은 LLM Context와 structured fallback 준비사항에서 제외
 - 전체 Backend tests `219 passed`; Railway 재배포·Public 재검증 전이므로 PUBLIC VERIFIED 아님
+
+Local GENERAL 지역 우선순위 안정화 (2026-09-01, **NOT PUBLIC VERIFIED**):
+
+- Public QA 전달 장문을 69건 bootstrap에서 재현하고 짧은 질문과 동일한
+  `region=대구 / age=28 / pre_founder=true / business_status=UNREGISTERED` 추출 확인
+- 일반 keyword score보다 앞서는 deterministic region tier 적용:
+  `SAME_REGION → NATIONWIDE → OTHER_REGION_WITH_EXPLICIT_EXCEPTION → REGION_UNKNOWN`
+- 명시적 타지역 전용은 제외하고 주소 이전·타지역민 예외 공고는 `NEEDS_REVIEW` 후보로 유지
+- 전체 Backend tests `222 passed`; 수정 후 Railway Public 재검증 전이므로 PUBLIC VERIFIED 아님
 
 Provider failure:
 
