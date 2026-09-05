@@ -1,8 +1,8 @@
 # FINANCE AI — Development Status
 
-Last Updated: 2026-09-01
+Last Updated: 2026-09-05
 
-이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra의 실제 개발 진행 상태를 기록한다.
+이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra와 Frontend 연동의 실제 개발 진행 상태를 기록한다.
 
 구현되지 않은 기능을 완료된 것처럼 기록하지 않는다. 상태는 실제 코드, 테스트, Railway Public Smoke, QA 재검증 결과를 기준으로 한다.
 
@@ -11,8 +11,8 @@ Last Updated: 2026-09-01
 Current Phase:
 
 ```text
-G5 — Public Backend Verified
-→ G6 Frontend Integration + Final End-to-End QA
+G6 — Submission Candidate / Code Freeze
+→ Public E2E Final Double-check + Submission Documents
 ```
 
 [TEAM DECISION]
@@ -47,11 +47,14 @@ Income Stability                        PUBLIC VERIFIED
 Sales CSV/XLSX Analysis                 PUBLIC VERIFIED
 Backend Railway Deployment              PUBLIC VERIFIED
 Frontend Local Build/Dev                VERIFIED
-Frontend API Integration                NOT YET PUBLIC VERIFIED
-Frontend Vercel Deployment              NOT YET PUBLIC VERIFIED
+Frontend Production Build               VERIFIED
+Frontend API Integration                PUBLIC VERIFIED
+Frontend Vercel Deployment              PUBLIC VERIFIED
 Database                                NOT USED BY DESIGN
 Vector DB / Graph DB / Multi-Agent      NOT IMPLEMENTED / NOT REQUIRED FOR MVP
 ```
+
+2026-09-05 현재 새 기능 추가를 중단하고 제출 후보를 대상으로 최종 확인하는 Code Freeze 단계다.
 
 현재 전체 Backend regression test 상태:
 
@@ -524,7 +527,7 @@ QA hardening 과정의 test progression:
 Repository:
 
 ```text
-start-finance-ai/frontend
+start-finance-ai/frontend_v2
 ```
 
 확인된 Stack:
@@ -537,49 +540,73 @@ start-finance-ai/frontend
 Local:
 
 ```text
-pnpm install  VERIFIED
-pnpm build    VERIFIED
-pnpm dev      VERIFIED
+Production build  VERIFIED
 ```
 
 Frontend ↔ Backend API Integration:
 
 ```text
-NOT YET PUBLIC VERIFIED
+PUBLIC VERIFIED
 ```
 
 Frontend Public Vercel Deployment:
 
 ```text
-NOT YET PUBLIC VERIFIED
+PUBLIC VERIFIED
+https://finbridge-start.vercel.app
 ```
 
-# 18. Remaining QA / P1 / P2
+제출 후보 Public URL에서 확인된 연결:
 
-## P1
+- `GET /programs` 실제 기업마당 데이터 목록
+- `GET /programs/{program_id}` 지원사업 상세
+- `POST /chat` 실제 LLM 응답
+- 지원사업 상세 → AI `program_id` context
+- `GENERAL` / `FOCUS` 모드
+- GENERAL 응답의 `suggest_focus_mode=true` 시 "집중모드로 전환" 배너
+- 집중모드 전환 후 기존 대화와 context 유지
+- `POST /risk/calculate` deterministic 계산
+- `POST /sales-analysis/analyze` 실제 CSV/XLSX 업로드·분석
+- `POST /income-stability/calculate` deterministic 계산
 
-- Sales exact duplicate row: 자동 삭제보다는 warning 방식 검토
-- Risk: positive cashflow인데 `runway=0`처럼 보일 수 있는 UI 의미 보정 / `N/A` 또는 “현금 소진 없음” 표현 검토
-- Runway 기준 시점 / 잔존채무 계산 설명 보강
-- Income Stability: 평균 / 모집단 표준편차 / CV 설명, 임의 안정성 threshold 생성 금지
-- Frontend API integration 후 실제 화면에서 Loading / Empty / Needs Review / Error 검증
+Frontend 마감 반영:
 
-## P2
+- AI Markdown 렌더링 개선
+- `NEEDS_REVIEW` 상태와 실제 API Error UI 구분
+- 지원사업 카드의 임의·반복 이미지 제거
+- Auth / Login / Signup Public flow 제거
 
-- Backend error code 사용자용 한글 메시지 매핑
-- 날짜 입력 허용 범위 추가 검토
-- UI에서 0과 blank 구분
-- 금융 계산의 기준 / 한계 안내 강화
+주의:
+
+- 지원사업 카드 이미지는 Evidence로 사용하지 않는다.
+- Auth / Login / Signup은 현재 Public 제출 범위에 포함하지 않는다.
+
+# 18. Submission Candidate / Code Freeze
+
+현재 상태:
+
+```text
+Backend                     PUBLIC VERIFIED
+Frontend Vercel             PUBLIC VERIFIED
+Frontend ↔ Railway Backend  PUBLIC VERIFIED
+Frontend Production Build   VERIFIED
+Submission Candidate        READY FOR FINAL DOUBLE-CHECK
+```
+
+운영 원칙:
+
+- 새 기능을 추가하지 않는다.
+- 제출 후보에서 회귀를 유발할 수 있는 비필수 변경을 하지 않는다.
+- 미구현·Mock·Planned 기능을 제출 기능으로 기재하지 않는다.
+- Public E2E 최종 더블체크 결과에 따라 문서의 검증 상태만 사실대로 조정한다.
 
 # 19. Current Blockers
 
-## Submission P0
+## Submission P0 / Remaining Work
 
-1. 최신 Frontend 디자인 pull / 충돌 확인
-2. Frontend ↔ Backend API Integration
-3. Vercel Public Deployment
-4. Public E2E QA
-5. 최종 기능명세서에는 실제 Public URL에서 검증된 기능만 반영
+1. 제출 후보 Public URL의 핵심 E2E 최종 더블체크
+2. 제출 기능명세서 / 기획서 최종화
+3. 공식 제출 공지와 최종 마감시각 재확인
 
 ## Not Current Blocker
 
@@ -594,14 +621,9 @@ NOT YET PUBLIC VERIFIED
 # 20. Immediate Next Tasks
 
 ```text
-1. QA P0 Public Verified 문서 반영 / commit
-2. QA 담당 핵심 regression 재확인
-3. P1 duplicate warning / risk semantics 최소 보정 여부 결정
-4. 최신 Frontend pull
-5. Frontend API Contract integration
-6. Vercel deployment
-7. Public E2E QA
-8. 기능명세서 / 기획서 최종화
+1. Public E2E 최종 더블체크
+2. 기능명세서 / 기획서 최종화
+3. 공식 제출 공지 재확인
 ```
 
 # 21. Submission Rule
