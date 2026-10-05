@@ -25,7 +25,7 @@ class BizinfoSnapshotLoader:
     def __init__(self, snapshot_path: Path) -> None:
         self.snapshot_path = snapshot_path
 
-    def load_items(self) -> list[dict[str, Any]]:
+    def load_payload(self) -> dict[str, Any]:
         try:
             response_bytes = self.snapshot_path.read_bytes()
         except FileNotFoundError as exc:
@@ -48,4 +48,7 @@ class BizinfoSnapshotLoader:
         if any(not isinstance(item, dict) for item in json_array):
             raise BizinfoStructureError("Every Bizinfo jsonArray item must be an object")
 
-        return json_array
+        return payload
+
+    def load_items(self) -> list[dict[str, Any]]:
+        return self.load_payload()["jsonArray"]

@@ -473,8 +473,10 @@ def test_llm_context_limits_detailed_candidates_but_response_keeps_contract(
         "apply_period_text",
         "application_status",
         "application_method_text",
+        "source",
         "source_url",
     }
+    assert all(program["source"] == "BIZINFO" for program in context["programs"])
     assert context["reply_policy"]["detailed_program_limit"] == 3
     assert context["reply_policy"]["visible_token_hard_limit"] == 900
     assert len(context_text) < 4000

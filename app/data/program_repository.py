@@ -27,9 +27,12 @@ class ProgramRepository:
         if self._programs is not None:
             return self._programs
 
+        payload = self._loader.load_payload()
+        metadata = payload.get("finbridge_dataset")
+        is_demo = isinstance(metadata, dict) and metadata.get("kind") == "synthetic_demo"
         programs: dict[str, Program] = {}
-        for item in self._loader.load_items():
-            program = normalize_bizinfo_program(item)
+        for item in payload["jsonArray"]:
+            program = normalize_bizinfo_program(item, is_demo=is_demo)
             if program.program_id in programs:
                 raise BizinfoStructureError(
                     f"Duplicate Bizinfo pblancId: {program.program_id}"
@@ -39,7 +42,7 @@ class ProgramRepository:
         return programs
 
 
-def normalize_bizinfo_program(item: dict[str, Any]) -> Program:
+def normalize_bizinfo_program(item: dict[str, Any], *, is_demo: bool = False) -> Program:
     program_id = _required_string(item, "pblancId")
     program_name = _required_string(item, "pblancNm")
     period = parse_application_period(_optional_string(item.get("reqstBeginEndDe")))
@@ -61,7 +64,7 @@ def normalize_bizinfo_program(item: dict[str, Any]) -> Program:
             apply_end=period.end,
             apply_period_text=period.raw_text,
             deadline_type=period.deadline_type,
-            source="BIZINFO",
+            source="DEMO" if is_demo else "BIZINFO",
             source_url=_optional_string(item.get("pblancUrl")),
             document_url=_optional_string(
                 item.get("printFlpthNm") or item.get("flpthNm")

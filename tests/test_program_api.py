@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from tests.conftest import ASGITestClient
 
 
 VALID_PROGRAM_ID = "PBLN_000000000125864"
+
+
+@pytest.fixture
+def client(private_client: ASGITestClient) -> ASGITestClient:
+    return private_client
 
 
 def test_get_valid_program_detail(client: ASGITestClient) -> None:

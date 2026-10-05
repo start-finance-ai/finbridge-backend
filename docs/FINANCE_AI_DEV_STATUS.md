@@ -1,5 +1,12 @@
 # FINANCE AI — Development Status
 
+## 현재 코드와 과거 검증 기록의 범위
+
+기본 실행 입력은 직접 작성한 합성 데모 6건으로 분리한다. 기업마당 수집 코드와
+실데이터 의존 회귀 테스트는 유지하며, 실데이터 테스트는 별도 비공개 파일이 있을 때
+실행한다. 과거의 `222 passed` 및 Public 검증 결과는 당시 제출 후보의 기록이며
+현재 데모 입력이나 현재 호스팅 상태에 대한 검증 결과가 아니다.
+
 Last Updated: 2026-09-05
 
 이 문서는 2026 금융 AI Challenge `FinBridge` Backend / AI / Data / Infra와 Frontend 연동의 실제 개발 진행 상태를 기록한다.

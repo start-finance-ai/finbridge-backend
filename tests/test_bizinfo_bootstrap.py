@@ -15,7 +15,7 @@ from app.services.program_service import ProgramService
 from tests.conftest import ASGITestClient
 
 
-EXPECTED_BOOTSTRAP_RECORDS = 69
+EXPECTED_BOOTSTRAP_RECORDS = 6
 
 
 class StubProvider:
@@ -131,3 +131,6 @@ def test_fresh_deployment_chat_retrieval_uses_bootstrap(
     payload = response.json()
     assert payload["programs"]
     assert payload["sources"]
+    assert all(source["source"] == "DEMO" for source in payload["sources"])
+    assert all(source["source_url"] is None for source in payload["sources"])
+    assert payload["reply"].startswith("[데모]")

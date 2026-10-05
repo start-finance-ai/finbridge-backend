@@ -33,7 +33,7 @@ from analyze_bizinfo_samples import (  # noqa: E402
 )
 
 
-DEFAULT_OUTPUT = Path("data/review/bizinfo_eligibility_review_48.csv")
+DEFAULT_OUTPUT = Path("data/private/bizinfo_eligibility_review_48.csv")
 CANDIDATES_PER_CONDITION = 3
 NEGATIVE_CONTROLS_PER_CONDITION = 1
 

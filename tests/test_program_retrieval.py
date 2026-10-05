@@ -18,17 +18,11 @@ from app.schemas.eligibility import ConditionType, ExtractionStatus
 from app.schemas.matching import BusinessStatus, UserProfile
 from app.schemas.retrieval import ProgramSearchRequest
 from app.services.program_service import ProgramService
-from tests.conftest import ASGITestClient, TEST_BIZINFO_SNAPSHOT
+from tests.conftest import ASGITestClient
 
 
 WATER_PROGRAM_ID = "PBLN_000000000125666"
 DAEGU_PRE_FOUNDER_PROGRAM_ID = "PBLN_000000000125612"
-BOOTSTRAP_SNAPSHOT = (
-    Path(__file__).resolve().parents[1]
-    / "data"
-    / "bootstrap"
-    / "bizinfo_startup_bootstrap.json"
-)
 SHORT_DAEGU_PROFILE_QUERY = (
     "대구 28세 예비창업자 사업자 미등록 지원사업 알려줘"
 )
@@ -56,8 +50,13 @@ class UnavailableProvider:
 
 
 @pytest.fixture
-def program_service() -> ProgramService:
-    return ProgramService(ProgramRepository(TEST_BIZINFO_SNAPSHOT))
+def client(private_client: ASGITestClient) -> ASGITestClient:
+    return private_client
+
+
+@pytest.fixture
+def program_service(snapshot_path: Path) -> ProgramService:
+    return ProgramService(ProgramRepository(snapshot_path))
 
 
 @pytest.fixture
@@ -298,8 +297,8 @@ def test_general_message_explicit_profile_drives_matching_and_region_ranking(
     assert kept_unknown_region is True
 
 
-def test_public_snapshot_daegu_profile_excludes_explicit_other_local_only() -> None:
-    service = ProgramService(ProgramRepository(BOOTSTRAP_SNAPSHOT))
+def test_private_snapshot_daegu_profile_excludes_explicit_other_local_only(real_bootstrap_path: Path) -> None:
+    service = ProgramService(ProgramRepository(real_bootstrap_path))
     retrieval = ProgramRetrievalService(service)
     message = "대구 28세 예비창업자 사업자 미등록 지원사업 알려줘"
     profile = extract_explicit_profile(message)
@@ -346,8 +345,8 @@ def test_short_and_long_daegu_queries_extract_the_same_structured_profile() -> N
     [SHORT_DAEGU_PROFILE_QUERY, LONG_DAEGU_PROFILE_QUERY],
     ids=["short", "long"],
 )
-def test_daegu_region_tiers_are_stable_across_query_length(message: str) -> None:
-    service = ProgramService(ProgramRepository(BOOTSTRAP_SNAPSHOT))
+def test_daegu_region_tiers_are_stable_across_query_length(message: str, real_bootstrap_path: Path) -> None:
+    service = ProgramService(ProgramRepository(real_bootstrap_path))
     retrieval = ProgramRetrievalService(service)
     profile = extract_explicit_profile(message)
     assert profile is not None

@@ -3,6 +3,7 @@
 !.env.example
 
 data/raw/
+data/private/
 __pycache__/
 *.pyc
 

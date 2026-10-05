@@ -27,7 +27,7 @@ from build_bizinfo_review_pack import (  # noqa: E402
 )
 
 
-DEFAULT_INPUT = Path("data/review/bizinfo_eligibility_review_48.csv")
+DEFAULT_INPUT = Path("data/private/bizinfo_eligibility_review_48.csv")
 EXPECTED_ROW_COUNT = 48
 
 REQUIRED_COLUMNS = (
@@ -263,7 +263,7 @@ def build_report(path: Path, rows: Sequence[dict[str, str]]) -> dict[str, Any]:
         "evaluation_scope": {
             "evaluation_set_type": "AI-assisted human-reviewed evaluation set",
             "alternate_description": "Human-reviewed Review Pack",
-            "input_path": path.relative_to(REPOSITORY_ROOT).as_posix(),
+            "input_path": path.as_posix(),
             "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "sampling_design": (
                 "12 condition types x (3 REGEX_CANDIDATE + 1 NEGATIVE_CONTROL)"

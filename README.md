@@ -26,6 +26,18 @@ FastAPI 백엔드를 담당합니다.
 기술 구성: Python · FastAPI · Pydantic · OpenAI Responses API · pytest.
 데이터는 파일 기반 Snapshot으로 읽으며 런타임 DB를 사용하지 않습니다.
 
+## 데이터 범위
+
+기본 실행에는 직접 작성한 **합성 데모 6건**을 사용합니다. `source=DEMO`와
+`[데모]` 제목으로 구분하며 실제 모집 공고, 신청 링크 또는 문의처를 제공하지 않습니다.
+검색·자격조건 비교·기간 계산 동작을 시연하는 데이터이며 실데이터 평가 결과가 아닙니다.
+
+기업마당 API 수집·정규화 코드는 유지합니다. 권한과 이용조건을 확인한 실데이터는
+Git에 포함하지 않고 `FINBRIDGE_BIZINFO_SNAPSHOT`으로 별도 파일을 지정할 수 있습니다.
+자세한 구분은 [데모 데이터](data/demo/README.md)와 [데이터 출처](docs/DATA_SOURCES.md)를 참고하세요.
+
+2026-10-02 기준 기존 Railway 서비스는 중지된 상태입니다. 아래 명령으로 로컬 실행할 수 있습니다.
+
 ## 로컬 실행
 
 저장소 루트에서 실행합니다. Python 버전은 `.python-version`의 `3.14.3`을
@@ -79,9 +91,30 @@ Risk Calculator는 사용자가 입력한 금리와 원리금균등상환 가정
 
 ## 테스트
 
+공개본은 합성 데이터와 코드 내부에서 작성한 테스트 입력을 사용합니다.
+기존 20건/69건 실데이터 의존 회귀 테스트도 보존하지만, 비공개 입력 파일이 없으면
+해당 테스트는 명시적으로 `SKIPPED`입니다. 전체 결과의 pass/skip 수를 함께 확인하세요.
+
 ```powershell
 .venv\Scripts\python.exe -m pytest -p no:cacheprovider -q
 ```
+
+기존 실데이터 회귀 테스트를 재현하려면 비공개 원본 파일을 별도로 지정합니다.
+
+```powershell
+$env:FINBRIDGE_TEST_SNAPSHOT = "C:\private-data\bizinfo_startup_sample_20.json"
+$env:FINBRIDGE_TEST_BOOTSTRAP = "C:\private-data\bizinfo_startup_bootstrap.json"
+.venv\Scripts\python.exe -m pytest -p no:cacheprovider -q
+```
+
+48행 Review Pack도 비공개 원본으로 별도 평가할 수 있습니다.
+
+```powershell
+.venv\Scripts\python.exe -m scripts.evaluate_bizinfo_review_pack --input "C:\private-data\bizinfo_eligibility_review_48.csv"
+```
+
+과거 문서의 `222 passed`와 실데이터 평가 수치는 당시 제출 후보에 대한 기록입니다.
+현재 데모 입력의 성능 수치나 현재 테스트 실행 결과로 해석하지 않습니다.
 
 ## 구현 범위와 한계
 
@@ -163,7 +196,7 @@ FINBRIDGE_BIZINFO_SNAPSHOT=<별도 Snapshot 경로가 있을 때만 사용>
 
 `OPENAI_API_KEY`가 없으면 `/chat`은 Structured Result를 유지하고
 `TEMPLATE_FALLBACK`을 반환합니다. `BIZINFO_API_KEY`와 runtime collected 파일도
-서버 기동 필수값이 아니며, 기본 서비스 데이터는 Git에 포함된 69건 Bootstrap입니다.
+서버 기동 필수값이 아니며, 기본 서비스 데이터는 Git에 포함된 합성 데모 6건입니다.
 Railway의 로컬 filesystem은 영속 저장소로 가정하지 않습니다.
 
 ### Public Domain Smoke — PowerShell
@@ -197,8 +230,7 @@ Snapshot 선택 순서는 다음과 같습니다.
 
 1. `FINBRIDGE_BIZINFO_SNAPSHOT`으로 명시한 파일
 2. 검증을 모두 통과해 `service_ready.json`에 게시된 최신 수집 Snapshot
-3. Git으로 배포되는 검증된 69건 Bootstrap인
-   `data/bootstrap/bizinfo_startup_bootstrap.json`
+3. Git으로 배포되는 합성 데모 6건인 `data/demo/finbridge_demo.json`
 
 런타임 API는 기업마당 외부 API를 호출하지 않습니다. 최신 Snapshot은 운영자가
 다음 명령으로만 수동 갱신합니다.
@@ -215,9 +247,10 @@ Loader·Normalization 검증을 모두 통과한 경우에만 service-ready mani
 교체합니다. 실패 시 기존 service-ready Snapshot과 baseline을 보존합니다. 수집 파일과
 manifest는 `data/raw/` ignore 규칙으로 Git에 포함되지 않습니다.
 
-Bootstrap은 2026-08-29 실제 수집·검증한 69건 Snapshot의 byte-identical 배포
-artifact이며 runtime 수집 경로와 분리해 Git 추적할 수 있습니다. 따라서 fresh
-deployment도 외부 API Refresh 없이 Program API를 기동할 수 있습니다.
+기존 69건 실데이터 Bootstrap은 공개본에 포함하지 않습니다. 새 실행 환경에서는
+외부 API Refresh 없이 데모 Program API를 기동할 수 있습니다. 실데이터가 필요한
+경우 허가된 비공개 Snapshot 경로를 지정하거나 수집기를 수동 실행하세요.
+서버 재시작 시 별도 파일이 유지되는지는 배포 환경의 저장소 설정에 따라 다릅니다.
 
 Chat 환경변수는 `.env.example`을 참고해 서버 환경에 설정합니다. Secret은
 `.env`에만 두고 Git에 포함하지 않습니다.

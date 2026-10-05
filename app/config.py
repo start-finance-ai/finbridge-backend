@@ -7,7 +7,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 BIZINFO_BOOTSTRAP_SNAPSHOT = (
-    PROJECT_ROOT / "data" / "bootstrap" / "bizinfo_startup_bootstrap.json"
+    PROJECT_ROOT / "data" / "demo" / "finbridge_demo.json"
 )
 # Backward-compatible name for callers that use the default local snapshot constant.
 DEFAULT_BIZINFO_SNAPSHOT = BIZINFO_BOOTSTRAP_SNAPSHOT

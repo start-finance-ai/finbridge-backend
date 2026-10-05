@@ -225,6 +225,12 @@ class ChatService:
             reply_source = ReplySource.TEMPLATE_FALLBACK
             model = None
 
+        if any(program.source == "DEMO" for program in raw_programs):
+            reply = (
+                "[데모] 아래 지원사업은 기능 시연용 합성 예제이며 실제 신청 가능한 공고가 아닙니다.\n\n"
+                + reply
+            )
+
         return ChatResponse(
             mode=request.mode,
             reply=reply,
@@ -345,6 +351,11 @@ class ChatService:
                     "program_id": program_id,
                     "program_name": item["program_name"],
                     "provider": item.get("provider"),
+                    "source": next(
+                        (source["source"] for source in structured_context.get("sources") or []
+                         if source["program_id"] == program_id),
+                        None,
+                    ),
                     "eligibility_evidence": compact_evidence,
                     "deterministic_match": (
                         {
