@@ -151,7 +151,7 @@ Docker: 없음
 Railway Dashboard 설정:
 
 1. `New Project` → `Deploy from GitHub repo`
-2. `start-finance-ai/backend` 선택
+2. `start-finance-ai/finbridge-backend` 선택
 3. Root Directory가 필요하면 Backend 저장소 루트로 지정
 4. Builder를 `Railpack`으로 설정
 5. Start Command를 `uvicorn app.main:app --host 0.0.0.0 --port $PORT`로 설정
