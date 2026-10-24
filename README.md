@@ -6,7 +6,9 @@
 
 **기본 데이터는 합성 데모 6건이며, API Key 없이 검색·매칭·재무 계산과 템플릿 채팅을 제공합니다.** 허가된 기업마당 Snapshot은 별도 경로로 연결할 수 있습니다.
 
-> Frontend: [finbridge-frontend](https://github.com/start-finance-ai/finbridge-frontend) · [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md)
+> Frontend: [finbridge-frontend](https://github.com/start-finance-ai/finbridge-frontend)
+>
+> Backend: [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md)
 >
 > 상세 설계는 [아키텍처](docs/FINANCE_AI_ARCHITECTURE.md), [조건 Schema](docs/ELIGIBILITY_SCHEMA.md), [매출 업로드 Schema](docs/SALES_UPLOAD_SCHEMA.md)를 참고하세요. 과거 배포·검증 기록은 [개발 상태 문서](docs/FINANCE_AI_DEV_STATUS.md)에 보존되어 있습니다.
 
