@@ -1,28 +1,19 @@
 # FinBridge Backend
 
-예비창업자·소상공인·프리랜서를 위한 **지원사업 검색·조건 매칭·재무 계산·근거 기반 AI 설명** 백엔드입니다. 2026 금융 AI Challenge 팀 `start`의 FinBridge 서비스로 개발했습니다.
+예비창업자·소상공인·프리랜서를 위한 **지원사업 탐색과 재무 분석 백엔드**입니다.
 
-지원사업을 추천할 때는 **어떤 조건을 비교했는지**, 재무 결과를 보여 줄 때는 **어떤 입력과 계산식을 사용했는지**를 함께 반환합니다. 검색과 판정, 금융 계산은 코드가 수행하고, OpenAI Responses API는 구조화된 결과를 사용자에게 설명합니다.
-
-**기본 데이터는 합성 데모 6건이며, API Key 없이 검색·매칭·재무 계산과 템플릿 채팅을 제공합니다.** 허가된 기업마당 Snapshot은 별도 경로로 연결할 수 있습니다.
-
-> Frontend: [finbridge-frontend](https://github.com/start-finance-ai/finbridge-frontend)
->
-> Backend: [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md)
->
-> 상세 설계는 [아키텍처](docs/FINANCE_AI_ARCHITECTURE.md), [조건 Schema](docs/ELIGIBILITY_SCHEMA.md), [매출 업로드 Schema](docs/SALES_UPLOAD_SCHEMA.md)를 참고하세요. 과거 배포·검증 기록은 [개발 상태 문서](docs/FINANCE_AI_DEV_STATUS.md)에 보존되어 있습니다.
+지원사업 검색·자격조건 매칭·재무 계산 결과를 근거와 함께 반환하고, AI가 이를 사용자에게 설명합니다. 2026 금융 AI Challenge 팀 `start`가 개발했습니다.
 
 ## 핵심 설계
 
-| 설계 | 구현 방식 | 목적 |
-| --- | --- | --- |
-| 판정·계산과 AI 설명 분리 | 규칙 기반 Matching, `Decimal` 계산, 구조화 결과를 받은 LLM 설명 | 생성 문장과 실제 비교·계산 결과를 구분 |
-| 근거를 포함한 조건 Schema | `condition_id`, `source_field`, `evidence_text`, 비교 연산·단위·적용 주체 | 조건별 판정 이유와 입력 자료의 근거 추적 |
-| 보수적인 자격 판정 | 공통 조건 AND, 대안 경로 OR, 전역 제외 조건, 추출 완전성 검사 | 명시적 불일치와 판단 보류를 구분하고 조건별 근거 제공 |
-| 구조화·키워드 검색 | 필터, 정확 일치·부분 일치, 필드 가중치, 지역 우선순위 | 검색 순위를 코드로 재현하고 일치 필드를 반환 |
-| LLM 장애 격리 | `AIProvider` Protocol, 오류 유형 분류, 제한된 재시도, 템플릿 폴백 | 설명 생성 실패 시에도 검색·매칭 결과 유지 |
-| 검증 후 Snapshot 게시 | 원본 응답 보존, ID·정규화 검증, manifest의 원자적 교체 | 수집 실패가 기존 서비스 데이터 교체로 이어지지 않음 |
-| 파일 기반 Data Layer | 정규화된 Program을 메모리 Repository에서 조회 | 런타임 DB 없이 기본 데모를 재현 |
+| 영역 | 구현 방식 |
+| --- | --- |
+| 판정·계산 | 규칙 기반 Matching과 `Decimal` 계산으로 처리하고 AI 설명과 분리 |
+| 근거 추적 | 조건 ID·원문 근거·비교 결과·출처를 함께 반환 |
+| 자격 매칭 | 공통 조건 AND, 대안 경로 OR, 전역 제외 조건과 추출 완전성 검사 |
+| 검색 | 구조화 필터, 필드별 가중 키워드 검색, 지역 우선순위 정렬 |
+| AI 설명 | 구조화 결과로 Context 구성, 공급자 오류 시 템플릿 폴백 |
+| 데이터 | 검증 후 Snapshot 원자적 게시, 메모리 Repository 조회 |
 
 ## 처리 흐름
 
@@ -40,6 +31,8 @@ flowchart TD
     T --> O
     F --> O
 ```
+
+## 기능별 구현
 
 ### 1. Snapshot 정규화와 검색
 
@@ -177,6 +170,8 @@ runway = 가용 현금 / 월현금 소진액  (가용 현금 > 0, 월현금흐�
 
 현재 Git에 포함된 사업 데이터는 직접 작성한 **합성 데모 6건**입니다. `source=DEMO`, `[데모]` 제목으로 표시하고 실제 신청 링크·문서 링크·문의처를 제공하지 않습니다. 데모 검색·매칭 결과를 실데이터 성능으로 해석하지 않습니다.
 
+기본 데모는 API Key 없이 검색·매칭·재무 계산과 템플릿 채팅을 제공합니다. 허가된 기업마당 Snapshot은 별도 경로로 연결할 수 있습니다.
+
 서버 생성 시 Snapshot 선택 순서는 다음과 같습니다.
 
 1. `FINBRIDGE_BIZINFO_SNAPSHOT`으로 명시한 파일
@@ -196,7 +191,7 @@ runway = 가용 현금 / 월현금 소진액  (가용 현금 > 0, 월현금흐�
 
 실패하면 기존 manifest를 유지하고 실패한 게시 후보를 정리합니다. 수집 결과는 `data/raw/bizinfo/collected/`에 저장되며 Git에 포함되지 않습니다. **실행 중인 Repository는 기존 데이터를 메모리에 보관하므로, 새 Snapshot을 서비스에 반영하려면 애플리케이션을 다시 기동해야 합니다.**
 
-출처·이용 범위는 [DATA_SOURCES](docs/DATA_SOURCES.md), 데모 구성은 [data/demo/README](data/demo/README.md)를 확인하세요. 기존 20건 테스트 입력, 69건 Bootstrap, 48행 Review CSV는 공개 저장소에 포함하지 않습니다. Snapshot 지정과 수동 갱신 명령은 [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md#데이터-선택과-수동-갱신)에 정리했습니다.
+기존 20건 테스트 입력, 69건 Bootstrap, 48행 Review CSV는 공개 저장소에 포함하지 않습니다. Snapshot 지정과 수동 갱신 절차는 아래 문서 목록의 설치·실행 가이드에 정리했습니다.
 
 ## 테스트와 평가
 
@@ -212,7 +207,7 @@ runway = 가용 현금 / 월현금 소진액  (가용 현금 > 0, 월현금흐�
 
 실데이터 입력을 별도 지정한 2026-10-02 검증 기록은 **231 passed**입니다. 이는 공개 데모만 사용한 새 실행 환경의 pass/skip 수나 LLM 정확도 지표가 아닙니다. 과거 문서의 `222 passed`와 배포 검증 수치도 해당 시점의 기록입니다.
 
-테스트·조건 추출 점검·Review Pack 평가 명령과 비공개 입력 설정은 [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md#테스트와-평가-실행)에 정리했습니다.
+테스트·조건 추출 점검·Review Pack 평가 명령과 비공개 입력 설정은 설치·실행 가이드에 정리했습니다.
 
 조건 추출·표현 범위에 대한 검증과 실제 지원 자격의 정확도는 구분합니다. 별첨까지 포함한 공고 전체의 자동 판독, 독립 평가셋의 최종 자격 정확도, LLM 환각률·응답 지연에 대한 일반화된 성능은 제시하지 않습니다.
 
@@ -224,13 +219,13 @@ runway = 가용 현금 / 월현금 소진액  (가용 현금 > 0, 월현금흐�
 
 향후 과제는 조건 추출의 독립 검토 표본 확대, 별첨 근거 확보, Snapshot 갱신 운영 보완, 설명의 근거 일치 평가입니다. 새 검색 기술이나 Agent Framework 도입은 현재 baseline 대비 개선을 확인한 후 검토합니다.
 
-## 관련 문서
+## 문서
 
-- [설치·실행 및 운영 가이드](docs/GETTING_STARTED.md)
-- [프로젝트 기준과 범위](docs/FINANCE_AI_GROUND_TRUTH.md)
-- [MVP 기능 범위](docs/FINANCE_AI_MVP_SCOPE.md)
-- [구조와 배포 설계](docs/FINANCE_AI_ARCHITECTURE.md)
-- [자격조건 Schema와 판정 규칙](docs/ELIGIBILITY_SCHEMA.md)
-- [매출 업로드 Schema와 계산 계약](docs/SALES_UPLOAD_SCHEMA.md)
-- [데이터 출처와 사용 범위](docs/DATA_SOURCES.md)
-- [개발 상태와 검증 기록](docs/FINANCE_AI_DEV_STATUS.md)
+| 문서 | 내용 |
+| --- | --- |
+| [아키텍처](docs/FINANCE_AI_ARCHITECTURE.md) | 계층별 책임과 서비스 구성 |
+| [자격조건 Schema](docs/ELIGIBILITY_SCHEMA.md) | 조건 구조와 판정 규칙 |
+| [매출 업로드 Schema](docs/SALES_UPLOAD_SCHEMA.md) | 파일 입력과 계산 계약 |
+| [데이터 출처](docs/DATA_SOURCES.md) | 데이터 이용 범위와 기준 |
+| [설치·실행 가이드](docs/GETTING_STARTED.md) | 로컬 실행, 환경변수, 테스트와 배포 |
+| [개발·검증 기록](docs/FINANCE_AI_DEV_STATUS.md) | 개발 상태와 과거 검증 결과 |
